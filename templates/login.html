@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Diri - Survei Literasi Digital</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+            <h1>Survei Literasi Digital Mahasiswa</h1>
+            <p>Silakan lengkapi data diri Anda sebelum memulai survei</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">
+                <span>Data Diri</span>
+                <span>0%</span>
+            </div>
+        </div>
+
+        <!-- Form Data Diri -->
+        <div class="form-container">
+            <form method="POST" id="loginForm">
+                <div class="form-group">
+                    <label for="nama">
+                        <i class="fas fa-user"></i> Nama Lengkap
+                    </label>
+                    <input type="text" id="nama" name="nama" placeholder="Masukkan nama lengkap" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="nim">
+                        <i class="fas fa-id-card"></i> Nomor Induk Mahasiswa (NIM)
+                    </label>
+                    <input type="text" name="nim" required 
+                        pattern="[0-9]{8,20}" 
+                        title="NIM harus angka, minimal 8 digit, maksimal 20 digit"
+                        oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="prodi">
+                        <i class="fas fa-book"></i> Program Studi
+                    </label>
+                    <select id="prodi" name="prodi" required>
+                        <option value="" disabled selected>Pilih Program Studi</option>
+                        <option value="Teknik Informatika">Teknik Informatika</option>
+                        <option value="Teknik Kimia">Teknik Kimia</option>
+                        <option value="Teknik Mesin">Teknik Mesin</option>
+                        <option value="Manajemen">Manajemen</option>
+                        <option value="Akutansi">Akutansi</option>
+                        <option value="Ilmu Politik">Ilmu Politik</option>
+                        <option value="Hubungan Internasional">Hubungan Internasional</option>
+                        <option value="Agribisnis">Agribisnis</option>
+                        <option value="Farmasi">Farmasi</option>
+                        <option value="Kedokteran">Kedokteran</option>
+                        <option value="Pendidikan Agama Islam">Pendidikan Agama Islam</option>
+                        <option value="Hukum Ekonomi Syariah">Hukum Ekonomi Syariah</option>
+                        <option value="Pendidikan Guru Madrasah Ibtidaiyah">Pendidikan Guru Madrasah Ibtidaiyah</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="semester">
+                        <i class="fas fa-calendar-alt"></i> Semester
+                    </label>
+                    <select id="semester" name="semester" required>
+                        <option value="" disabled selected>Pilih Semester</option>
+                        <option value="1">Semester 1</option>
+                        <option value="2">Semester 2</option>
+                        <option value="3">Semester 3</option>
+                        <option value="4">Semester 4</option>
+                        <option value="5">Semester 5</option>
+                        <option value="6">Semester 6</option>
+                        <option value="7">Semester 7</option>
+                        <option value="8">Semester 8</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn">
+                    <i class="fas fa-play-circle"></i> Mulai Survei
+                </button>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>© 2024 Survei Literasi Digital | Universitas Example</p>
+            <p>Data Anda akan dijaga kerahasiaannya</p>
+        </div>
+    </div>
+
+    <script>
+        // Validasi form
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            const nim = document.getElementById('nim').value;
+            const nama = document.getElementById('nama').value;
+            
+            if (nim.length < 8) {
+                alert('NIM harus minimal 8 karakter');
+                e.preventDefault();
+                return false;
+            }
+            
+            if (nama.length < 3) {
+                alert('Nama harus minimal 3 karakter');
+                e.preventDefault();
+                return false;
+            }
+            
+            // Update progress bar
+            document.querySelector('.progress-fill').style.width = '100%';
+            document.querySelector('.progress-text span:last-child').textContent = '100%';
+            
+            return true;
+        });
+        
+        // Animasi input focus
+        const inputs = document.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'translateY(-2px)';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body>
+</html>

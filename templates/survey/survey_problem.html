@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey: Problem Solving</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-lightbulb"></i>
+            </div>
+            <h1>Problem Solving</h1>
+            <p>Bagian Terakhir (5 dari 5) - Berikan penilaian berdasarkan pengalaman Anda (Skala 1-5)</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100%"></div>
+            </div>
+            <div class="progress-text">
+                <span>Bagian 5/5</span>
+                <span>100%</span>
+            </div>
+        </div>
+
+        <div class="form-container">
+            <div class="category-info">
+                <h3><i class="fas fa-cogs"></i> Kategori: Problem Solving</h3>
+                <p>Kemampuan memecahkan masalah dan beradaptasi dengan teknologi baru</p>
+            </div>
+
+            <form method="POST">
+                <!-- Pertanyaan 17 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">17</span>
+                        <span class="question-text">
+                            Ketika menghadapi masalah teknis (misal: gagal koneksi, error aplikasi), saya mencoba mencari solusinya sendiri terlebih dahulu sebelum bertanya pada orang lain.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q17" id="q17_{{ score }}" value="{{ score }}" required>
+                            <label for="q17_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 18 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">18</span>
+                        <span class="question-text">
+                            Saya sering menggunakan alat digital/aplikasi baru untuk mempermudah manajemen waktu dan tugas kuliah saya.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q18" id="q18_{{ score }}" value="{{ score }}" required>
+                            <label for="q18_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 19 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">19</span>
+                        <span class="question-text">
+                            Saya mampu beradaptasi dengan cepat jika dosen menggunakan platform pembelajaran (LMS) baru yang belum pernah saya gunakan.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q19" id="q19_{{ score }}" value="{{ score }}" required>
+                            <label for="q19_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <a href="{{ url_for('survey_security', respondent_id=respondent_id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Kembali
+                    </a>
+                    <button type="submit" class="btn">
+                        <i class="fas fa-paper-plane"></i> Kirim Semua Jawaban
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Survei Literasi Digital | Bagian 5: Problem Solving</p>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const unanswered = [];
+            for(let i = 17; i <= 19; i++) {
+                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
+                    unanswered.push(i);
+                }
+            }
+            
+            if(unanswered.length > 0) {
+                e.preventDefault();
+                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
+                return false;
+            }
+            
+            // Konfirmasi sebelum submit akhir
+            if(!confirm("Apakah Anda yakin ingin mengirim semua jawaban? Setelah dikirim, Anda tidak dapat mengubah jawaban.")) {
+                e.preventDefault();
+                return false;
+            }
+            
+            return true;
+        });
+    </script>
+</body>
+</html>

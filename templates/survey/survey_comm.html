@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey: Communication & Collaboration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-comments"></i>
+            </div>
+            <h1>Communication & Collaboration</h1>
+            <p>Bagian 2 dari 5 - Berikan penilaian berdasarkan pengalaman Anda (Skala 1-5)</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 40%"></div>
+            </div>
+            <div class="progress-text">
+                <span>Bagian 2/5</span>
+                <span>40%</span>
+            </div>
+        </div>
+
+        <div class="form-container">
+            <div class="category-info">
+                <h3><i class="fas fa-users"></i> Kategori: Communication & Collaboration</h3>
+                <p>Kemampuan berkomunikasi dan berkolaborasi dalam lingkungan digital</p>
+            </div>
+
+            <form method="POST">
+                <!-- Pertanyaan 5 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">5</span>
+                        <span class="question-text">
+                            Saya merasa nyaman menggunakan berbagai platform kolaborasi (Zoom, Google Docs, Trello/Notion) untuk kerja kelompok.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q5" id="q5_{{ score }}" value="{{ score }}" required>
+                            <label for="q5_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 6 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">6</span>
+                        <span class="question-text">
+                            Saya memahami etika pengiriman surel (email) formal kepada dosen (menggunakan subjek yang jelas, salam pembuka, bahasa baku).
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q6" id="q6_{{ score }}" value="{{ score }}" required>
+                            <label for="q6_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 7 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">7</span>
+                        <span class="question-text">
+                            Saya sadar akan jejak digital (digital footprint) dan berhati-hati dalam memposting komentar atau foto di ruang publik digital.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q7" id="q7_{{ score }}" value="{{ score }}" required>
+                            <label for="q7_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 8 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">8</span>
+                        <span class="question-text">
+                            Saya aktif berbagi pengetahuan atau materi pembelajaran yang bermanfaat kepada teman melalui grup digital.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q8" id="q8_{{ score }}" value="{{ score }}" required>
+                            <label for="q8_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <a href="{{ url_for('survey_info', respondent_id=respondent_id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Kembali
+                    </a>
+                    <button type="submit" class="btn">
+                        <i class="fas fa-arrow-right"></i> Lanjut ke Bagian 3
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Survei Literasi Digital | Bagian 2: Communication & Collaboration</p>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const unanswered = [];
+            for(let i = 5; i <= 8; i++) {
+                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
+                    unanswered.push(i);
+                }
+            }
+            
+            if(unanswered.length > 0) {
+                e.preventDefault();
+                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
+                return false;
+            }
+            return true;
+        });
+    </script>
+</body>
+</html>

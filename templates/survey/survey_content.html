@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey: Digital Content Creation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-paint-brush"></i>
+            </div>
+            <h1>Digital Content Creation</h1>
+            <p>Bagian 3 dari 5 - Berikan penilaian berdasarkan pengalaman Anda (Skala 1-5)</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 60%"></div>
+            </div>
+            <div class="progress-text">
+                <span>Bagian 3/5</span>
+                <span>60%</span>
+            </div>
+        </div>
+
+        <div class="form-container">
+            <div class="category-info">
+                <h3><i class="fas fa-edit"></i> Kategori: Digital Content Creation</h3>
+                <p>Kemampuan membuat dan mengelola konten digital dengan etika yang tepat</p>
+            </div>
+
+            <form method="POST">
+                <!-- Pertanyaan 9 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">9</span>
+                        <span class="question-text">
+                            Saya mampu mengoperasikan perangkat lunak perkantoran (Word, Excel, PPT) fitur lanjut (seperti mail merge, pivot table, atau animasi slide) untuk menunjang tugas.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q9" id="q9_{{ score }}" value="{{ score }}" required>
+                            <label for="q9_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 10 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">10</span>
+                        <span class="question-text">
+                            Saya bisa membuat konten multimedia sederhana (infografis, video pendek, atau blog) untuk keperluan tugas atau organisasi.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q10" id="q10_{{ score }}" value="{{ score }}" required>
+                            <label for="q10_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 11 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">11</span>
+                        <span class="question-text">
+                            Saya memahami konsep Hak Cipta (Copyright) dan lisensi Creative Commons saat mengambil gambar/musik dari internet.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q11" id="q11_{{ score }}" value="{{ score }}" required>
+                            <label for="q11_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 12 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">12</span>
+                        <span class="question-text">
+                            Saya selalu mencantumkan sitasi/sumber rujukan dengan format yang benar (APA/IEEE) untuk menghindari plagiarisme.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q12" id="q12_{{ score }}" value="{{ score }}" required>
+                            <label for="q12_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <a href="{{ url_for('survey_comm', respondent_id=respondent_id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Kembali
+                    </a>
+                    <button type="submit" class="btn">
+                        <i class="fas fa-arrow-right"></i> Lanjut ke Bagian 4
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Survei Literasi Digital | Bagian 3: Digital Content Creation</p>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const unanswered = [];
+            for(let i = 9; i <= 12; i++) {
+                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
+                    unanswered.push(i);
+                }
+            }
+            
+            if(unanswered.length > 0) {
+                e.preventDefault();
+                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
+                return false;
+            }
+            return true;
+        });
+    </script>
+</body>
+</html>

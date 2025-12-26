@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survey: Information & Data Literacy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-database"></i>
+            </div>
+            <h1>Information & Data Literacy</h1>
+            <p>Bagian 1 dari 5 - Berikan penilaian berdasarkan pengalaman Anda (Skala 1-5)</p>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 20%"></div>
+            </div>
+            <div class="progress-text">
+                <span>Bagian 1/5</span>
+                <span>20%</span>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        <div style="padding: 0 40px; margin-top: 10px;">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <strong>{{ category | title }}!</strong> {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="form-container">
+            <div class="category-info">
+                <h3><i class="fas fa-info-circle"></i> Kategori: Information & Data Literacy</h3>
+                <p>Kemampuan dalam mencari, mengevaluasi, dan mengelola informasi digital</p>
+            </div>
+
+            <form method="POST">
+                <!-- Pertanyaan 1 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">1</span>
+                        <span class="question-text">
+                            Saya mampu menggunakan kata kunci spesifik dan operator pencarian (seperti "AND", "OR", tanda kutip) untuk menemukan literatur akademik yang relevan.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q1" id="q1_{{ score }}" value="{{ score }}" required>
+                            <label for="q1_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 2 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">2</span>
+                        <span class="question-text">
+                            Saya selalu memeriksa kredibilitas penulis dan penerbit sebelum menggunakan artikel sebagai referensi tugas kuliah.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q2" id="q2_{{ score }}" value="{{ score }}" required>
+                            <label for="q2_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 3 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">3</span>
+                        <span class="question-text">
+                            Saya mampu membedakan antara informasi yang bersifat fakta, opini, dan berita bohong (hoaks) di media sosial.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q3" id="q3_{{ score }}" value="{{ score }}" required>
+                            <label for="q3_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <!-- Pertanyaan 4 -->
+                <div class="question-card">
+                    <div class="question-header">
+                        <span class="question-number">4</span>
+                        <span class="question-text">
+                            Saya memiliki sistem penyimpanan data (seperti Google Drive/iCloud) yang terorganisir sehingga mudah menemukan kembali file tugas lama.
+                        </span>
+                    </div>
+                    <div class="rating-scale">
+                        {% for score in range(1, 6) %}
+                        <div class="rating-option">
+                            <input type="radio" name="q4" id="q4_{{ score }}" value="{{ score }}" required>
+                            <label for="q4_{{ score }}">{{ score }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="rating-labels">
+                        <span>Sangat Tidak Setuju</span>
+                        <span>Sangat Setuju</span>
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <button type="submit" class="btn">
+                        <i class="fas fa-arrow-right"></i> Lanjut ke Bagian 2
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Survei Literasi Digital | Bagian 1: Information & Data Literacy</p>
+        </div>
+    </div>
+
+    <script>
+        // Validasi semua pertanyaan dijawab
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const unanswered = [];
+            for(let i = 1; i <= 4; i++) {
+                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
+                    unanswered.push(i);
+                }
+            }
+            
+            if(unanswered.length > 0) {
+                e.preventDefault();
+                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
+                return false;
+            }
+            return true;
+        });
+    </script>
+</body>
+</html>
