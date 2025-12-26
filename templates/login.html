@@ -9,16 +9,12 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="header">
-            <div class="logo">
-                <i class="fas fa-graduation-cap"></i>
-            </div>
+            <div class="logo"><i class="fas fa-graduation-cap"></i></div>
             <h1>Survei Literasi Digital Mahasiswa</h1>
             <p>Silakan lengkapi data diri Anda sebelum memulai survei</p>
         </div>
 
-        <!-- Progress Bar -->
         <div class="progress-container">
             <div class="progress-bar">
                 <div class="progress-fill" style="width: 0%"></div>
@@ -29,31 +25,38 @@
             </div>
         </div>
 
-        <!-- Form Data Diri -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            {% if category == 'success' %} <i class="fas fa-check-circle"></i>
+                            {% elif category == 'error' %} <i class="fas fa-exclamation-circle"></i>
+                            {% endif %}
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
         <div class="form-container">
             <form method="POST" id="loginForm">
                 <div class="form-group">
-                    <label for="nama">
-                        <i class="fas fa-user"></i> Nama Lengkap
-                    </label>
+                    <label for="nama"><i class="fas fa-user"></i> Nama Lengkap</label>
                     <input type="text" id="nama" name="nama" placeholder="Masukkan nama lengkap" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="nim">
-                        <i class="fas fa-id-card"></i> Nomor Induk Mahasiswa (NIM)
-                    </label>
-                    <input type="text" name="nim" required 
-                        pattern="[0-9]{8,20}" 
-                        title="NIM harus angka, minimal 8 digit, maksimal 20 digit"
-                        oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                    >
+                    <label for="nim"><i class="fas fa-id-card"></i> Nomor Induk Mahasiswa (NIM)</label>
+                    <input type="text" id="nim" name="nim" placeholder="Nomor Induk Mahasiswa" 
+                        required pattern="[0-9]{8,20}" 
+                        title="NIM harus 8-20 digit angka"
+                        oninput="validateNIM()"> <div id="nim-error" class="error-message"></div>
                 </div>
 
                 <div class="form-group">
-                    <label for="prodi">
-                        <i class="fas fa-book"></i> Program Studi
-                    </label>
+                    <label for="prodi"><i class="fas fa-book"></i> Program Studi</label>
                     <select id="prodi" name="prodi" required>
                         <option value="" disabled selected>Pilih Program Studi</option>
                         <option value="Teknik Informatika">Teknik Informatika</option>
@@ -70,12 +73,11 @@
                         <option value="Hukum Ekonomi Syariah">Hukum Ekonomi Syariah</option>
                         <option value="Pendidikan Guru Madrasah Ibtidaiyah">Pendidikan Guru Madrasah Ibtidaiyah</option>
                     </select>
+                    <div id="prodi-error" class="error-message"></div>
                 </div>
 
                 <div class="form-group">
-                    <label for="semester">
-                        <i class="fas fa-calendar-alt"></i> Semester
-                    </label>
+                    <label for="semester"><i class="fas fa-calendar-alt"></i> Semester</label>
                     <select id="semester" name="semester" required>
                         <option value="" disabled selected>Pilih Semester</option>
                         <option value="1">Semester 1</option>
@@ -87,57 +89,25 @@
                         <option value="7">Semester 7</option>
                         <option value="8">Semester 8</option>
                     </select>
+                    <div id="semester-error" class="error-message"></div>
                 </div>
 
-                <button type="submit" class="btn">
+                <button type="submit" class="btn" id="submitBtn">
                     <i class="fas fa-play-circle"></i> Mulai Survei
                 </button>
+                
+                <div class="form-info">
+                    <p><i class="fas fa-info-circle"></i> Data Anda akan disimpan secara aman dan hanya digunakan untuk keperluan penelitian.</p>
+                </div>
             </form>
         </div>
 
-        <!-- Footer -->
         <div class="footer">
             <p>© 2024 Survei Literasi Digital | Universitas Example</p>
             <p>Data Anda akan dijaga kerahasiaannya</p>
         </div>
     </div>
 
-    <script>
-        // Validasi form
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            const nim = document.getElementById('nim').value;
-            const nama = document.getElementById('nama').value;
-            
-            if (nim.length < 8) {
-                alert('NIM harus minimal 8 karakter');
-                e.preventDefault();
-                return false;
-            }
-            
-            if (nama.length < 3) {
-                alert('Nama harus minimal 3 karakter');
-                e.preventDefault();
-                return false;
-            }
-            
-            // Update progress bar
-            document.querySelector('.progress-fill').style.width = '100%';
-            document.querySelector('.progress-text span:last-child').textContent = '100%';
-            
-            return true;
-        });
-        
-        // Animasi input focus
-        const inputs = document.querySelectorAll('input, select');
-        inputs.forEach(input => {
-            input.addEventListener('focus', function() {
-                this.parentElement.style.transform = 'translateY(-2px)';
-            });
-            
-            input.addEventListener('blur', function() {
-                this.parentElement.style.transform = 'translateY(0)';
-            });
-        });
-    </script>
+    <script src="{{ url_for('static', filename='login.js') }}"></script>
 </body>
 </html>
