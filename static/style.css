@@ -288,8 +288,42 @@ body {
     font-weight: 600;
 }
 
+/* ===== Additional styles for delete features ===== */
+.delete-section {
+    background: #fff3cd;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 30px 0;
+    border-left: 4px solid #ffc107;
+}
+
+.delete-warning {
+    background: #f8d7da;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    border-left: 4px solid #dc3545;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+    color: #212529;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #e0a800, #d39e00);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #c82333, #bd2130);
+}
+
 /* =========================================
-   BARIS BARU: UPDATE FLASH MESSAGE & VALIDASI
+BARIS BARU: UPDATE FLASH MESSAGE & VALIDASI
    ========================================= */
 
 /* ===== FLASH MESSAGES ===== */

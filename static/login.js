@@ -113,6 +113,37 @@ function validateForm() {
     return nimValid && namaValid && prodiValid && semesterValid;
 }
 
+// Fungsi konfirmasi untuk menghapus semua data testing
+function confirmDeleteAll() {
+    const code = prompt(`⚠️  PERINGATAN: HAPUS SEMUA DATA ⚠️
+
+Untuk mengonfirmasi penghapusan SEMUA data:
+• ${total_respondents} Responden
+• ${total_surveys} Data Survei
+
+Ketik: DELETE_ALL_2024
+
+Data yang dihapus TIDAK DAPAT dikembalikan!`);
+
+    if (code === "DELETE_ALL_2024") {
+        document.getElementById("confirmCode").value = code;
+        return true;
+    } else {
+        alert("❌ Kode konfirmasi salah! Data tidak dihapus.");
+        return false;
+    }
+}
+
+// Auto-hide flash messages after 5 seconds
+setTimeout(() => {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        alert.style.opacity = '0';
+        alert.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => alert.remove(), 500);
+    });
+}, 5000);
+
 // Event Listeners (dijalankan setelah DOM load)
 document.addEventListener('DOMContentLoaded', function() {
     

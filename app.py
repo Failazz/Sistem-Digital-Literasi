@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
@@ -265,9 +265,6 @@ def login():
     return render_template('login.html')
 
 # ==================== SURVEY MULTI-PAGE ROUTES ====================
-# [Kode route survei multi-halaman tetap sama seperti sebelumnya]
-# ... (kode survey_info, survey_comm, survey_content, survey_security, survey_problem)
-
 @app.route('/survey/<int:respondent_id>/info', methods=['GET', 'POST'])
 def survey_info(respondent_id):
     """Halaman 1: Information & Data Literacy"""
@@ -493,10 +490,156 @@ def check_nim(nim):
     else:
         return {'available': True, 'message': 'NIM tersedia'}
 
-# ==================== PROTECTED ADMIN ROUTES ====================
-# [Kode export csv, export excel, dan view_data tetap sama seperti sebelumnya]
-# ... (kode export_csv, export_excel, view_data)
+# ==================== ROUTES DELETE DATA ====================
+@app.route('/delete/respondent/<int:respondent_id>', methods=['POST'])
+@admin_required
+def delete_respondent(respondent_id):
+    """Hapus data responden beserta data surveinya"""
+    try:
+        # Cari data responden
+        respondent = Respondent.query.get(respondent_id)
+        
+        if not respondent:
+            flash('Data responden tidak ditemukan!', 'error')
+            return redirect(url_for('view_data'))
+        
+        # Simpan info untuk flash message
+        nama = respondent.nama
+        nim = respondent.nim
+        
+        # Hapus data survey yang terkait
+        survey_response = SurveyResponse.query.filter_by(respondent_id=respondent_id).first()
+        if survey_response:
+            db.session.delete(survey_response)
+        
+        # Hapus data responden
+        db.session.delete(respondent)
+        db.session.commit()
+        
+        flash(f'✅ Data berhasil dihapus: {nama} (NIM: {nim})', 'success')
+        print(f"🗑️  Data dihapus - NIM: {nim}, Nama: {nama}")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error saat menghapus data: {e}")
+        flash(f'Error saat menghapus data: {str(e)}', 'error')
+    
+    return redirect(url_for('view_data'))
 
+
+@app.route('/delete/survey/<int:survey_id>', methods=['POST'])
+@admin_required
+def delete_survey(survey_id):
+    """Hapus data survei saja (tanpa menghapus data responden)"""
+    try:
+        survey = SurveyResponse.query.get(survey_id)
+        
+        if not survey:
+            flash('Data survei tidak ditemukan!', 'error')
+            return redirect(url_for('view_data'))
+        
+        # Cari data responden terkait untuk info
+        respondent = Respondent.query.get(survey.respondent_id)
+        
+        db.session.delete(survey)
+        db.session.commit()
+        
+        if respondent:
+            flash(f'✅ Data survei dihapus (Responden: {respondent.nama}, NIM: {respondent.nim})', 'success')
+            print(f"🗑️  Survey dihapus - ID: {survey_id}, NIM: {respondent.nim}")
+        else:
+            flash(f'✅ Data survei ID: {survey_id} dihapus', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error saat menghapus survei: {e}")
+        flash(f'Error saat menghapus survei: {str(e)}', 'error')
+    
+    return redirect(url_for('view_data'))
+
+
+@app.route('/admin/delete-all-testing', methods=['POST'])
+@admin_required
+def delete_all_testing():
+    """Hapus semua data testing (gunakan dengan hati-hati!)"""
+    try:
+        # Konfirmasi khusus untuk operasi ini
+        confirm_code = request.form.get('confirm_code')
+        
+        if confirm_code != 'DELETE_ALL_2024':
+            flash('Kode konfirmasi salah!', 'error')
+            return redirect(url_for('admin'))
+        
+        # Hitung data sebelum dihapus
+        count_respondents = Respondent.query.count()
+        count_surveys = SurveyResponse.query.count()
+        
+        # Hapus semua data survey dulu
+        SurveyResponse.query.delete()
+        # Hapus semua data responden
+        Respondent.query.delete()
+        
+        db.session.commit()
+        
+        flash(f'🗑️  SEMUA DATA TESTING DIHAPUS! ({count_respondents} responden, {count_surveys} survei)', 'warning')
+        print(f"⚠️  SEMUA DATA DIHAPUS - {count_respondents} responden, {count_surveys} survei")
+        
+        return redirect(url_for('admin'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error menghapus semua data: {str(e)}', 'error')
+        return redirect(url_for('admin'))
+
+
+@app.route('/delete/batch', methods=['POST'])
+@admin_required
+def delete_batch():
+    """Hapus multiple data sekaligus (AJAX)"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'Data tidak valid'}), 400
+        
+        respondent_ids = data.get('respondent_ids', [])
+        survey_ids = data.get('survey_ids', [])
+        
+        deleted_count = 0
+        
+        # Hapus data responden (beserta survey terkait)
+        for rid in respondent_ids:
+            respondent = Respondent.query.get(rid)
+            if respondent:
+                # Hapus survey terkait
+                SurveyResponse.query.filter_by(respondent_id=rid).delete()
+                # Hapus responden
+                db.session.delete(respondent)
+                deleted_count += 1
+        
+        # Hapus data survey saja
+        for sid in survey_ids:
+            survey = SurveyResponse.query.get(sid)
+            if survey:
+                db.session.delete(survey)
+                deleted_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Berhasil menghapus {deleted_count} data',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False, 
+            'message': f'Error: {str(e)}'
+        }), 500
+
+# ==================== PROTECTED ADMIN ROUTES ====================
 @app.route('/export/csv')
 @admin_required
 def export_csv():
@@ -632,6 +775,10 @@ def view_data():
         html_parts.append('tr:nth-child(even) { background-color: #f2f2f2; }')
         html_parts.append('.btn { display: inline-block; padding: 10px 15px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 5px; }')
         html_parts.append('.btn-logout { background: #dc3545; }')
+        html_parts.append('.btn-delete { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; }')
+        html_parts.append('.btn-delete:hover { background: #c82333; transform: scale(1.05); }')
+        html_parts.append('.btn-delete-survey { background: #fd7e14; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; }')
+        html_parts.append('.btn-delete-survey:hover { background: #e06c0e; transform: scale(1.05); }')
         html_parts.append('</style>')
         html_parts.append('</head><body>')
         
@@ -646,40 +793,83 @@ def view_data():
         html_parts.append(f'<p><strong>Total Responden:</strong> {len(respondents)}</p>')
         html_parts.append(f'<p><strong>Total Survei:</strong> {len(responses)}</p>')
         
+        # ===== TABEL RESPONDEN DENGAN TOMBOL DELETE =====
         if respondents:
-            html_parts.append('<h2>Data Responden (NIM Unik)</h2>')
-            html_parts.append('<table><tr><th>ID</th><th>Nama</th><th>NIM</th><th>Prodi</th><th>Semester</th><th>Timestamp</th></tr>')
+            html_parts.append('<h2>Data Responden (NIM Unik)')
+            html_parts.append('<span style="font-size: 14px; color: #666; margin-left: 10px;">')
+            html_parts.append(f'Total: {len(respondents)} data')
+            html_parts.append('</span></h2>')
+            
+            html_parts.append('<table><tr>')
+            html_parts.append('<th>ID</th><th>Nama</th><th>NIM</th><th>Prodi</th><th>Semester</th><th>Timestamp</th><th>Aksi</th>')
+            html_parts.append('</tr>')
+            
             for r in respondents:
-                html_parts.append(f'<tr><td>{r.id}</td><td>{r.nama}</td><td><strong>{r.nim}</strong></td><td>{r.prodi}</td><td>{r.semester}</td><td>{r.timestamp.strftime("%Y-%m-%d %H:%M:%S") if r.timestamp else ""}</td></tr>')
+                html_parts.append(f'<tr id="respondent-{r.id}">')
+                html_parts.append(f'<td>{r.id}</td>')
+                html_parts.append(f'<td>{r.nama}</td>')
+                html_parts.append(f'<td><strong>{r.nim}</strong></td>')
+                html_parts.append(f'<td>{r.prodi}</td>')
+                html_parts.append(f'<td>{r.semester}</td>')
+                html_parts.append(f'<td>{r.timestamp.strftime("%Y-%m-%d %H:%M:%S") if r.timestamp else ""}</td>')
+                
+                # TOMBOL DELETE
+                html_parts.append(f'''<td>
+                    <form method="POST" action="/delete/respondent/{r.id}" 
+                          onsubmit="return confirmDelete('{r.nama}', '{r.nim}')" 
+                          style="display: inline;">
+                        <button type="submit" class="btn-delete" title="Hapus data responden dan surveinya">
+                            <i class="fas fa-trash"></i> Hapus
+                        </button>
+                    </form>
+                </td>''')
+                
+                html_parts.append('</tr>')
             html_parts.append('</table>')
         else:
             html_parts.append('<p><em>Tidak ada data responden.</em></p>')
         
+        # ===== TABEL SURVEY DENGAN TOMBOL DELETE =====
         if responses:
-            html_parts.append('<h2>Data Jawaban Survei</h2>')
+            html_parts.append('<h2>Data Jawaban Survei')
+            html_parts.append('<span style="font-size: 14px; color: #666; margin-left: 10px;">')
+            html_parts.append(f'Total: {len(responses)} data')
+            html_parts.append('</span></h2>')
+            
             html_parts.append('<table>')
             html_parts.append('<tr>')
-            html_parts.append('<th>ID</th><th>Respondent ID</th><th>NIM</th>')
-            html_parts.append('<th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th>')
-            html_parts.append('<th>Q5</th><th>Q6</th><th>Q7</th><th>Q8</th>')
-            html_parts.append('<th>Q9</th><th>Q10</th><th>Q11</th><th>Q12</th>')
-            html_parts.append('<th>Q13</th><th>Q14</th><th>Q15</th><th>Q16</th>')
-            html_parts.append('<th>Q17</th><th>Q18</th><th>Q19</th>')
-            html_parts.append('<th>Total Score</th><th>Timestamp</th>')
+            html_parts.append('<th>ID</th><th>Respondent ID</th><th>Nama</th><th>NIM</th>')
+            html_parts.append('<th>Total Score</th><th>Timestamp</th><th>Aksi</th>')
             html_parts.append('</tr>')
             
             for r in responses:
                 respondent = next((resp for resp in respondents if resp.id == r.respondent_id), None)
-                nim = respondent.nim if respondent else "N/A"
                 
-                html_parts.append('<tr>')
-                html_parts.append(f'<td>{r.id}</td><td>{r.respondent_id}</td><td>{nim}</td>')
-                html_parts.append(f'<td>{r.q1_info}</td><td>{r.q2_info}</td><td>{r.q3_info}</td><td>{r.q4_info}</td>')
-                html_parts.append(f'<td>{r.q5_comm}</td><td>{r.q6_comm}</td><td>{r.q7_comm}</td><td>{r.q8_comm}</td>')
-                html_parts.append(f'<td>{r.q9_content}</td><td>{r.q10_content}</td><td>{r.q11_content}</td><td>{r.q12_content}</td>')
-                html_parts.append(f'<td>{r.q13_security}</td><td>{r.q14_security}</td><td>{r.q15_security}</td><td>{r.q16_security}</td>')
-                html_parts.append(f'<td>{r.q17_problem}</td><td>{r.q18_problem}</td><td>{r.q19_problem}</td>')
-                html_parts.append(f'<td>{r.total_score}</td><td>{r.timestamp.strftime("%Y-%m-%d %H:%M:%S") if r.timestamp else ""}</td>')
+                html_parts.append(f'<tr id="survey-{r.id}">')
+                html_parts.append(f'<td>{r.id}</td>')
+                html_parts.append(f'<td>{r.respondent_id}</td>')
+                
+                if respondent:
+                    html_parts.append(f'<td>{respondent.nama}</td>')
+                    html_parts.append(f'<td>{respondent.nim}</td>')
+                else:
+                    html_parts.append('<td style="color: #dc3545;">N/A</td>')
+                    html_parts.append('<td style="color: #dc3545;">N/A</td>')
+                
+                html_parts.append(f'<td><strong>{r.total_score}/95</strong></td>')
+                html_parts.append(f'<td>{r.timestamp.strftime("%Y-%m-%d %H:%M:%S") if r.timestamp else ""}</td>')
+                
+                # TOMBOL DELETE SURVEY
+                html_parts.append(f'''<td>
+                    <form method="POST" action="/delete/survey/{r.id}" 
+                          onsubmit="return confirmDeleteSurvey({r.id})" 
+                          style="display: inline;">
+                        <button type="submit" class="btn-delete-survey" title="Hapus data survei saja">
+                            <i class="fas fa-trash-alt"></i> Hapus
+                        </button>
+                    </form>
+                </td>''')
+                
                 html_parts.append('</tr>')
             html_parts.append('</table>')
         else:
@@ -689,6 +879,19 @@ def view_data():
         html_parts.append('<a href="/admin" class="btn"><i class="fas fa-arrow-left"></i> Kembali ke Admin Panel</a>')
         html_parts.append('<a href="/export/csv" class="btn"><i class="fas fa-file-csv"></i> Export CSV</a>')
         html_parts.append('<a href="/export/excel" class="btn"><i class="fas fa-file-excel"></i> Export Excel</a>')
+        
+        # ===== JAVASCRIPT UNTUK KONFIRMASI DELETE =====
+        html_parts.append('''
+        <script>
+        function confirmDelete(nama, nim) {
+            return confirm(`Apakah Anda yakin ingin menghapus data: ${nama} (NIM: ${nim})?\\n\\n✅ Data responden DAN data survei akan dihapus.\\n❌ Tindakan ini tidak dapat dibatalkan!`);
+        }
+
+        function confirmDeleteSurvey(surveyId) {
+            return confirm(`Hapus data survei ID: ${surveyId}?\\n\\n⚠️ Hanya data survei yang dihapus, data responden tetap ada.`);
+        }
+        </script>
+        ''')
         
         html_parts.append('</body></html>')
         
@@ -718,6 +921,10 @@ if __name__ == '__main__':
     print("   • NIM harus UNIK (tidak boleh duplikat)")
     print("   • NIM hanya menerima ANGKA (0-9)")
     print("   • NIM minimal 8 digit")
+    print("="*70)
+    print("🗑️  FITUR DELETE BARU:")
+    print("   • Delete single data dari halaman View Data")
+    print("   • Delete semua data testing dari Admin Panel")
     print("="*70)
     print("🔐 Login Admin Default:")
     print("   Username: admin")
