@@ -8,23 +8,41 @@ from io import StringIO, BytesIO
 import pandas as pd
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'survey-literasi-digital-2024-secret-key'
+app.secret_key = 'survey-literasi-digital-2025'
 
 # ==================== KONFIGURASI DATABASE ====================
-basedir = os.path.abspath(os.path.dirname(__file__))
-database_path = os.path.join(basedir, 'database.db')
+# Cek apakah ada environment variable DATABASE_URL
+if os.environ.get('DATABASE_URL'):
+    # Untuk production/Heroku
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    print("=" * 70)
+    print("🚀 SISTEM SURVEI LITERASI DIGITAL - POSTGRESQL")
+    print("=" * 70)
+    print("📁 Database: PostgreSQL (Production)")
+    print("=" * 70)
+else:
+    # Untuk development lokal - GANTI PASSWORD MENJADI admin123
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:yahalose@localhost:5432/survey_digital_literacy'
+    print("=" * 70)
+    print("🚀 SISTEM SURVEI LITERASI DIGITAL - POSTGRESQL")
+    print("=" * 70)
+    print("📁 Database: PostgreSQL (Local Development)")
+    print("=" * 70)
 
-print("=" * 70)
-print("🚀 SISTEM SURVEI LITERASI DIGITAL")
-print("=" * 70)
-print(f"📁 Database: {database_path}")
-print("=" * 70)
-
-# Konfigurasi SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 300,
+    'pool_pre_ping': True,
+}
 
 db = SQLAlchemy(app)
 
@@ -32,7 +50,7 @@ db = SQLAlchemy(app)
 class Respondent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nama = db.Column(db.String(100), nullable=False)
-    nim = db.Column(db.String(20), unique=True, nullable=False)  # UNIQUE constraint
+    nim = db.Column(db.String(20), unique=True, nullable=False)
     prodi = db.Column(db.String(50), nullable=False)
     semester = db.Column(db.Integer, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.now)
@@ -41,31 +59,26 @@ class SurveyResponse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     respondent_id = db.Column(db.Integer, nullable=False)
     
-    # Information & Data Literacy (4 pertanyaan)
     q1_info = db.Column(db.Integer, default=0)
     q2_info = db.Column(db.Integer, default=0)
     q3_info = db.Column(db.Integer, default=0)
     q4_info = db.Column(db.Integer, default=0)
     
-    # Communication & Collaboration (4 pertanyaan)
     q5_comm = db.Column(db.Integer, default=0)
     q6_comm = db.Column(db.Integer, default=0)
     q7_comm = db.Column(db.Integer, default=0)
     q8_comm = db.Column(db.Integer, default=0)
     
-    # Digital Content Creation (4 pertanyaan)
     q9_content = db.Column(db.Integer, default=0)
     q10_content = db.Column(db.Integer, default=0)
     q11_content = db.Column(db.Integer, default=0)
     q12_content = db.Column(db.Integer, default=0)
     
-    # Security (4 pertanyaan)
     q13_security = db.Column(db.Integer, default=0)
     q14_security = db.Column(db.Integer, default=0)
     q15_security = db.Column(db.Integer, default=0)
     q16_security = db.Column(db.Integer, default=0)
     
-    # Problem Solving (3 pertanyaan)
     q17_problem = db.Column(db.Integer, default=0)
     q18_problem = db.Column(db.Integer, default=0)
     q19_problem = db.Column(db.Integer, default=0)
@@ -76,7 +89,7 @@ class SurveyResponse(db.Model):
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
-    password = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     
     def __repr__(self):
         return f'<Admin {self.username}>'
@@ -103,13 +116,16 @@ def check_nim_exists(nim):
 def create_default_admin():
     """Buat admin default jika belum ada"""
     with app.app_context():
-        admin = Admin.query.filter_by(username='admin').first()
-        if not admin:
-            hashed_password = generate_password_hash('admin123', method='pbkdf2:sha256')
-            default_admin = Admin(username='admin', password=hashed_password)
-            db.session.add(default_admin)
-            db.session.commit()
-            print("✅ Admin default dibuat - Username: admin, Password: admin123")
+        try:
+            admin = Admin.query.filter_by(username='admin').first()
+            if not admin:
+                hashed_password = generate_password_hash('admin123', method='pbkdf2:sha256')
+                default_admin = Admin(username='admin', password=hashed_password)
+                db.session.add(default_admin)
+                db.session.commit()
+                print("✅ Admin default dibuat - Username: admin, Password: admin123")
+        except Exception as e:
+            print(f"⚠️  Gagal membuat admin: {e}")
 
 def admin_required(f):
     """Decorator untuk memeriksa login admin"""
@@ -122,114 +138,47 @@ def admin_required(f):
 
 # ==================== INISIALISASI DATABASE ====================
 def init_database():
-    """Membuat database dan tabel jika belum ada"""
+    """Membuat tabel jika belum ada (PostgreSQL)"""
     with app.app_context():
         try:
-            if not os.path.exists(database_path):
-                print("📁 Membuat database baru...")
-                db.create_all()
-                print(f"✅ Database berhasil dibuat: {database_path}")
-            else:
-                db.create_all()
-                print(f"📁 Database sudah ada: {database_path}")
-                
-            test_connection()
+            db.create_all()
+            print("✅ Tabel berhasil dibuat (atau sudah ada)")
+            
+            # Cek koneksi
+            count = Respondent.query.count()
+            print(f"📊 Data responden saat ini: {count} orang")
             
         except Exception as e:
-            print(f"❌ Error inisialisasi database: {e}")
-            create_database_manual()
-
-def test_connection():
-    """Test koneksi database"""
-    try:
-        count = Respondent.query.count()
-        print(f"📊 Data responden saat ini: {count} orang")
-        return True
-    except:
-        print("⚠️  Database belum ada, akan dibuat...")
-        return False
-
-def create_database_manual():
-    """Buat database manual dengan sqlite3 (fallback)"""
-    import sqlite3
-    try:
-        conn = sqlite3.connect(database_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS respondent (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nama TEXT NOT NULL,
-                nim TEXT NOT NULL UNIQUE,  -- UNIQUE constraint
-                prodi TEXT NOT NULL,
-                semester INTEGER NOT NULL,
-                timestamp TEXT
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS survey_response (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                respondent_id INTEGER NOT NULL,
-                q1_info INTEGER DEFAULT 0,
-                q2_info INTEGER DEFAULT 0,
-                q3_info INTEGER DEFAULT 0,
-                q4_info INTEGER DEFAULT 0,
-                q5_comm INTEGER DEFAULT 0,
-                q6_comm INTEGER DEFAULT 0,
-                q7_comm INTEGER DEFAULT 0,
-                q8_comm INTEGER DEFAULT 0,
-                q9_content INTEGER DEFAULT 0,
-                q10_content INTEGER DEFAULT 0,
-                q11_content INTEGER DEFAULT 0,
-                q12_content INTEGER DEFAULT 0,
-                q13_security INTEGER DEFAULT 0,
-                q14_security INTEGER DEFAULT 0,
-                q15_security INTEGER DEFAULT 0,
-                q16_security INTEGER DEFAULT 0,
-                q17_problem INTEGER DEFAULT 0,
-                q18_problem INTEGER DEFAULT 0,
-                q19_problem INTEGER DEFAULT 0,
-                total_score INTEGER DEFAULT 0,
-                timestamp TEXT
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
-        print("✅ Database manual berhasil dibuat!")
-    except Exception as e:
-        print(f"❌ Gagal membuat database manual: {e}")
+            print(f"❌ Error inisialisasi database PostgreSQL: {e}")
+            print("⚠️  Pastikan:")
+            print("   1. PostgreSQL service sedang berjalan")
+            print("   2. Database 'survey_digital_literacy' sudah dibuat")
+            print("   3. Username/password PostgreSQL benar")
 
 # ==================== ROUTES UTAMA ====================
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         try:
-            # Ambil data dari form
             nama = request.form['nama'].strip()
             nim = request.form['nim'].strip()
             prodi = request.form['prodi'].strip()
             semester = request.form['semester'].strip()
             
-            # Validasi dasar
             if not all([nama, nim, prodi, semester]):
                 flash('Harap lengkapi semua data!', 'error')
                 return render_template('login.html')
             
-            # Validasi NIM: hanya angka
             is_valid, error_msg = validate_nim(nim)
             if not is_valid:
                 flash(f'NIM tidak valid: {error_msg}', 'error')
                 return render_template('login.html')
             
-            # Cek apakah NIM sudah terdaftar - VALIDASI DI SINI
             existing_respondent = Respondent.query.filter_by(nim=nim).first()
             if existing_respondent:
                 flash('❌ NIM sudah terdaftar. Gunakan NIM lain.', 'error')
                 return render_template('login.html')
             
-            # Validasi semester
             try:
                 semester_int = int(semester)
                 if semester_int < 1 or semester_int > 8:
@@ -239,7 +188,6 @@ def login():
                 flash('Semester harus berupa angka', 'error')
                 return render_template('login.html')
             
-            # Simpan ke database
             respondent = Respondent(
                 nama=nama,
                 nim=nim,
@@ -253,7 +201,6 @@ def login():
             print(f"✅ Data disimpan - ID: {respondent.id}, NIM: {respondent.nim}, Nama: {respondent.nama}")
             flash('✅ Data berhasil disimpan! Mengarahkan ke survei...', 'success')
             
-            # Redirect ke halaman pertama survei
             return redirect(url_for('survey_info', respondent_id=respondent.id))
             
         except Exception as e:
@@ -463,10 +410,10 @@ def admin():
                 avg_score = sum([r.total_score for r in responses]) / len(responses)
             
             return render_template('admin.html',
-                                 total_respondents=total_respondents,
-                                 total_surveys=total_surveys,
-                                 avg_score=round(avg_score, 2),
-                                 username=session.get('admin_username'))
+                                total_respondents=total_respondents,
+                                total_surveys=total_surveys,
+                                avg_score=round(avg_score, 2),
+                                username=session.get('admin_username'))
         except Exception as e:
             flash(f'Error: {str(e)}', 'error')
             return render_template('admin.html', login_form=True)
@@ -496,23 +443,19 @@ def check_nim(nim):
 def delete_respondent(respondent_id):
     """Hapus data responden beserta data surveinya"""
     try:
-        # Cari data responden
         respondent = Respondent.query.get(respondent_id)
         
         if not respondent:
             flash('Data responden tidak ditemukan!', 'error')
             return redirect(url_for('view_data'))
         
-        # Simpan info untuk flash message
         nama = respondent.nama
         nim = respondent.nim
         
-        # Hapus data survey yang terkait
         survey_response = SurveyResponse.query.filter_by(respondent_id=respondent_id).first()
         if survey_response:
             db.session.delete(survey_response)
         
-        # Hapus data responden
         db.session.delete(respondent)
         db.session.commit()
         
@@ -526,7 +469,6 @@ def delete_respondent(respondent_id):
     
     return redirect(url_for('view_data'))
 
-
 @app.route('/delete/survey/<int:survey_id>', methods=['POST'])
 @admin_required
 def delete_survey(survey_id):
@@ -538,7 +480,6 @@ def delete_survey(survey_id):
             flash('Data survei tidak ditemukan!', 'error')
             return redirect(url_for('view_data'))
         
-        # Cari data responden terkait untuk info
         respondent = Respondent.query.get(survey.respondent_id)
         
         db.session.delete(survey)
@@ -557,26 +498,21 @@ def delete_survey(survey_id):
     
     return redirect(url_for('view_data'))
 
-
 @app.route('/admin/delete-all-testing', methods=['POST'])
 @admin_required
 def delete_all_testing():
     """Hapus semua data testing (gunakan dengan hati-hati!)"""
     try:
-        # Konfirmasi khusus untuk operasi ini
         confirm_code = request.form.get('confirm_code')
         
         if confirm_code != 'DELETE_ALL_2024':
             flash('Kode konfirmasi salah!', 'error')
             return redirect(url_for('admin'))
         
-        # Hitung data sebelum dihapus
         count_respondents = Respondent.query.count()
         count_surveys = SurveyResponse.query.count()
         
-        # Hapus semua data survey dulu
         SurveyResponse.query.delete()
-        # Hapus semua data responden
         Respondent.query.delete()
         
         db.session.commit()
@@ -590,7 +526,6 @@ def delete_all_testing():
         db.session.rollback()
         flash(f'Error menghapus semua data: {str(e)}', 'error')
         return redirect(url_for('admin'))
-
 
 @app.route('/delete/batch', methods=['POST'])
 @admin_required
@@ -607,17 +542,13 @@ def delete_batch():
         
         deleted_count = 0
         
-        # Hapus data responden (beserta survey terkait)
         for rid in respondent_ids:
             respondent = Respondent.query.get(rid)
             if respondent:
-                # Hapus survey terkait
                 SurveyResponse.query.filter_by(respondent_id=rid).delete()
-                # Hapus responden
                 db.session.delete(respondent)
                 deleted_count += 1
         
-        # Hapus data survey saja
         for sid in survey_ids:
             survey = SurveyResponse.query.get(sid)
             if survey:
@@ -793,7 +724,6 @@ def view_data():
         html_parts.append(f'<p><strong>Total Responden:</strong> {len(respondents)}</p>')
         html_parts.append(f'<p><strong>Total Survei:</strong> {len(responses)}</p>')
         
-        # ===== TABEL RESPONDEN DENGAN TOMBOL DELETE =====
         if respondents:
             html_parts.append('<h2>Data Responden (NIM Unik)')
             html_parts.append('<span style="font-size: 14px; color: #666; margin-left: 10px;">')
@@ -813,11 +743,10 @@ def view_data():
                 html_parts.append(f'<td>{r.semester}</td>')
                 html_parts.append(f'<td>{r.timestamp.strftime("%Y-%m-%d %H:%M:%S") if r.timestamp else ""}</td>')
                 
-                # TOMBOL DELETE
                 html_parts.append(f'''<td>
                     <form method="POST" action="/delete/respondent/{r.id}" 
-                          onsubmit="return confirmDelete('{r.nama}', '{r.nim}')" 
-                          style="display: inline;">
+                        onsubmit="return confirmDelete('{r.nama}', '{r.nim}')" 
+                        style="display: inline;">
                         <button type="submit" class="btn-delete" title="Hapus data responden dan surveinya">
                             <i class="fas fa-trash"></i> Hapus
                         </button>
@@ -829,7 +758,6 @@ def view_data():
         else:
             html_parts.append('<p><em>Tidak ada data responden.</em></p>')
         
-        # ===== TABEL SURVEY DENGAN TOMBOL DELETE =====
         if responses:
             html_parts.append('<h2>Data Jawaban Survei')
             html_parts.append('<span style="font-size: 14px; color: #666; margin-left: 10px;">')
@@ -859,11 +787,10 @@ def view_data():
                 html_parts.append(f'<td><strong>{r.total_score}/95</strong></td>')
                 html_parts.append(f'<td>{r.timestamp.strftime("%Y-%m-%d %H:%M:%S") if r.timestamp else ""}</td>')
                 
-                # TOMBOL DELETE SURVEY
                 html_parts.append(f'''<td>
                     <form method="POST" action="/delete/survey/{r.id}" 
-                          onsubmit="return confirmDeleteSurvey({r.id})" 
-                          style="display: inline;">
+                        onsubmit="return confirmDeleteSurvey({r.id})" 
+                        style="display: inline;">
                         <button type="submit" class="btn-delete-survey" title="Hapus data survei saja">
                             <i class="fas fa-trash-alt"></i> Hapus
                         </button>
@@ -880,7 +807,6 @@ def view_data():
         html_parts.append('<a href="/export/csv" class="btn"><i class="fas fa-file-csv"></i> Export CSV</a>')
         html_parts.append('<a href="/export/excel" class="btn"><i class="fas fa-file-excel"></i> Export Excel</a>')
         
-        # ===== JAVASCRIPT UNTUK KONFIRMASI DELETE =====
         html_parts.append('''
         <script>
         function confirmDelete(nama, nim) {
