@@ -372,8 +372,8 @@ def survey_problem(respondent_id):
             flash(f'Terjadi error: {str(e)}', 'error')
     
     return render_template('survey/survey_problem.html',
-                          respondent_id=respondent_id,
-                          respondent=respondent)
+                        respondent_id=respondent_id,
+                        respondent=respondent)
 
 @app.route('/success')
 def success():
@@ -382,11 +382,42 @@ def success():
 # ==================== ADMIN ROUTE TERPUSAT ====================
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
-    """Halaman admin terpusat - login dan dashboard dalam satu halaman"""
+    """Halaman admin terpusat - login dan dashboard"""
     
+    # Jika sudah login, tampilkan dashboard
+    if session.get('admin_logged_in'):
+        try:
+            # Hitung statistik
+            total_respondents = Respondent.query.count()
+            total_surveys = SurveyResponse.query.count()
+            
+            # Hitung average score
+            responses = SurveyResponse.query.all()
+            avg_score = 0
+            if responses:
+                total = sum([r.total_score for r in responses])
+                avg_score = total / len(responses)
+            
+            # Kirim data ke template
+            return render_template('admin.html',
+                                total_respondents=total_respondents,
+                                total_surveys=total_surveys,
+                                avg_score=round(avg_score, 2),
+                                username=session.get('admin_username'))
+            
+        except Exception as e:
+            print(f"❌ Error loading dashboard: {e}")
+            # Jika ada error, tetap tampilkan dashboard dengan nilai default
+            return render_template('admin.html',
+                                total_respondents=0,
+                                total_surveys=0,
+                                avg_score=0,
+                                username=session.get('admin_username', 'Admin'))
+    
+    # Handle POST request untuk login
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
         
         admin_user = Admin.query.filter_by(username=username).first()
         
@@ -396,32 +427,17 @@ def admin():
             session['admin_id'] = admin_user.id
             flash('Login berhasil!', 'success')
             print(f"✅ Admin login: {username}")
+            # Setelah login, refresh halaman untuk menampilkan dashboard
+            return redirect(url_for('admin'))
         else:
             flash('Username atau password salah!', 'error')
     
-    if session.get('admin_logged_in'):
-        try:
-            total_respondents = Respondent.query.count()
-            total_surveys = SurveyResponse.query.count()
-            
-            responses = SurveyResponse.query.all()
-            avg_score = 0
-            if responses:
-                avg_score = sum([r.total_score for r in responses]) / len(responses)
-            
-            return render_template('admin.html',
-                                total_respondents=total_respondents,
-                                total_surveys=total_surveys,
-                                avg_score=round(avg_score, 2),
-                                username=session.get('admin_username'))
-        except Exception as e:
-            flash(f'Error: {str(e)}', 'error')
-            return render_template('admin.html', login_form=True)
-    else:
-        return render_template('admin.html', login_form=True)
+    # Jika belum login, tampilkan form login
+    return render_template('admin.html')
 
 @app.route('/admin/logout')
 def admin_logout():
+    """Logout admin"""
     session.pop('admin_logged_in', None)
     session.pop('admin_username', None)
     session.pop('admin_id', None)
@@ -828,6 +844,212 @@ def view_data():
         import traceback
         error_detail = traceback.format_exc()
         return f"<h1>❌ Terjadi Error dalam view_data():</h1><pre>{error_detail}</pre>"
+    
+# ==================== ROUTES UNTUK CHART DATA ====================
+@app.route('/api/chart-data')
+@admin_required
+def chart_data():
+    """API untuk data chart"""
+    try:
+        responses = SurveyResponse.query.all()
+        respondents = Respondent.query.all()
+        
+        if not responses:
+            return jsonify({
+                'categories': ['Information', 'Communication', 'Content', 'Security', 'Problem Solving'],
+                'averages': [0, 0, 0, 0, 0],
+                'overall_average': 0,
+                'program_studies': [],
+                'program_counts': [],
+                'semester_distribution': []
+            })
+        
+        # Hitung rata-rata per kategori
+        info_scores = []
+        comm_scores = []
+        content_scores = []
+        security_scores = []
+        problem_scores = []
+        total_scores = []
+        
+        for r in responses:
+            info_total = r.q1_info + r.q2_info + r.q3_info + r.q4_info
+            comm_total = r.q5_comm + r.q6_comm + r.q7_comm + r.q8_comm
+            content_total = r.q9_content + r.q10_content + r.q11_content + r.q12_content
+            security_total = r.q13_security + r.q14_security + r.q15_security + r.q16_security
+            problem_total = r.q17_problem + r.q18_problem + r.q19_problem
+            
+            info_scores.append(info_total / 4)  # 4 pertanyaan
+            comm_scores.append(comm_total / 4)  # 4 pertanyaan
+            content_scores.append(content_total / 4)  # 4 pertanyaan
+            security_scores.append(security_total / 4)  # 4 pertanyaan
+            problem_scores.append(problem_total / 3)  # 3 pertanyaan
+            total_scores.append(r.total_score / 19)  # 19 pertanyaan total
+        
+        # Distribusi Program Studi
+        prodi_counts = {}
+        for r in respondents:
+            prodi = r.prodi
+            prodi_counts[prodi] = prodi_counts.get(prodi, 0) + 1
+        
+        # Distribusi Semester
+        semester_counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0}
+        for r in respondents:
+            semester = r.semester
+            if 1 <= semester <= 8:
+                semester_counts[semester] = semester_counts.get(semester, 0) + 1
+        
+        return jsonify({
+            'categories': ['Information & Data', 'Communication', 'Content Creation', 'Security', 'Problem Solving'],
+            'averages': [
+                round(sum(info_scores) / len(info_scores), 2),
+                round(sum(comm_scores) / len(comm_scores), 2),
+                round(sum(content_scores) / len(content_scores), 2),
+                round(sum(security_scores) / len(security_scores), 2),
+                round(sum(problem_scores) / len(problem_scores), 2)
+            ],
+            'overall_average': round(sum(total_scores) / len(total_scores), 2),
+            'program_studies': list(prodi_counts.keys()),
+            'program_counts': list(prodi_counts.values()),
+            'semester_labels': [f'Semester {i}' for i in range(1, 9)],
+            'semester_distribution': [semester_counts[i] for i in range(1, 9)],
+            'total_respondents': len(respondents),
+            'total_surveys': len(responses)
+        })
+        
+    except Exception as e:
+        print(f"❌ Error chart data: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# ==================== ROUTES UNTUK SEARCH/FILTER ====================
+@app.route('/api/search-data')
+@admin_required
+def search_data():
+    """API untuk search dan filter data"""
+    try:
+        search_term = request.args.get('q', '').strip().lower()
+        prodi_filter = request.args.get('prodi', '').strip()
+        semester_filter = request.args.get('semester', '').strip()
+        
+        # Query dasar
+        query = db.session.query(
+            Respondent.id,
+            Respondent.nama,
+            Respondent.nim,
+            Respondent.prodi,
+            Respondent.semester,
+            Respondent.timestamp,
+            SurveyResponse.total_score,
+            SurveyResponse.timestamp.label('survey_timestamp')
+        ).join(SurveyResponse, Respondent.id == SurveyResponse.respondent_id)
+        
+        # Apply filters
+        if search_term:
+            query = query.filter(
+                db.or_(
+                    Respondent.nama.ilike(f'%{search_term}%'),
+                    Respondent.nim.ilike(f'%{search_term}%'),
+                    Respondent.prodi.ilike(f'%{search_term}%')
+                )
+            )
+        
+        if prodi_filter:
+            query = query.filter(Respondent.prodi == prodi_filter)
+        
+        if semester_filter:
+            query = query.filter(Respondent.semester == int(semester_filter))
+        
+        # Execute query
+        results = query.order_by(Respondent.timestamp.desc()).all()
+        
+        # Format results
+        data = []
+        for r in results:
+            data.append({
+                'id': r.id,
+                'nama': r.nama,
+                'nim': r.nim,
+                'prodi': r.prodi,
+                'semester': r.semester,
+                'timestamp': r.timestamp.strftime('%Y-%m-%d %H:%M') if r.timestamp else '',
+                'total_score': r.total_score,
+                'survey_timestamp': r.survey_timestamp.strftime('%Y-%m-%d %H:%M') if r.survey_timestamp else ''
+            })
+        
+        # Get unique prodi for filter dropdown
+        prodi_list = [p[0] for p in db.session.query(Respondent.prodi).distinct().all()]
+        
+        return jsonify({
+            'data': data,
+            'total': len(data),
+            'prodi_list': prodi_list
+        })
+        
+    except Exception as e:
+        print(f"❌ Error search data: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# ==================== DASHBOARD API ROUTES ====================
+@app.route('/api/dashboard-stats')
+@admin_required
+def dashboard_stats():
+    """API untuk data dashboard stats"""
+    try:
+        total_respondents = Respondent.query.count()
+        total_surveys = SurveyResponse.query.count()
+        
+        responses = SurveyResponse.query.all()
+        avg_score = 0
+        if responses:
+            avg_score = sum([r.total_score for r in responses]) / len(responses)
+        
+        # Get latest activity
+        latest_response = SurveyResponse.query.order_by(SurveyResponse.timestamp.desc()).first()
+        latest_activity = latest_response.timestamp.strftime('%Y-%m-%d %H:%M') if latest_response else 'No data'
+        
+        return jsonify({
+            'total_respondents': total_respondents,
+            'total_surveys': total_surveys,
+            'avg_score': round(avg_score, 2),
+            'latest_activity': latest_activity,
+            'success': True
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/top-performers')
+@admin_required
+def top_performers():
+    """API untuk top performers"""
+    try:
+        # Join respondents with survey responses
+        results = db.session.query(
+            Respondent.nama,
+            Respondent.nim,
+            Respondent.prodi,
+            SurveyResponse.total_score
+        ).join(SurveyResponse, Respondent.id == SurveyResponse.respondent_id)\
+        .order_by(SurveyResponse.total_score.desc())\
+        .limit(10)\
+        .all()
+        
+        top_performers = []
+        for r in results:
+            top_performers.append({
+                'nama': r.nama,
+                'nim': r.nim,
+                'prodi': r.prodi,
+                'score': r.total_score
+            })
+        
+        return jsonify({
+            'top_performers': top_performers,
+            'success': True
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ==================== JALANKAN APLIKASI ====================
 if __name__ == '__main__':
