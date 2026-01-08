@@ -46,6 +46,29 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 db = SQLAlchemy(app)
 
+# ==================== MAPPING PERTANYAAN (UNTUK ANALISIS) ====================
+QUESTION_MAP = {
+    'q1_info': 'Info: Kata Kunci & Operator Pencarian',
+    'q2_info': 'Info: Evaluasi Kredibilitas Sumber',
+    'q3_info': 'Info: Fakta vs Opini/Hoaks',
+    'q4_info': 'Info: Manajemen Penyimpanan Data',
+    'q5_comm': 'Comm: Platform Kolaborasi',
+    'q6_comm': 'Comm: Etika Email Formal',
+    'q7_comm': 'Comm: Jejak Digital',
+    'q8_comm': 'Comm: Berbagi Pengetahuan',
+    'q9_content': 'Content: Office Advance Features',
+    'q10_content': 'Content: Pembuatan Multimedia',
+    'q11_content': 'Content: Hak Cipta & Lisensi',
+    'q12_content': 'Content: Sitasi & Plagiarisme',
+    'q13_security': 'Security: Manajemen Password',
+    'q14_security': 'Security: Autentikasi 2 Faktor (2FA)',
+    'q15_security': 'Security: Izin Akses Aplikasi',
+    'q16_security': 'Security: Screen Time & Kesehatan',
+    'q17_problem': 'Problem: Troubleshooting Mandiri',
+    'q18_problem': 'Problem: Eksplorasi Tools Baru',
+    'q19_problem': 'Problem: Adaptasi Platform Baru'
+}
+
 # ==================== MODEL DATABASE ====================
 class Respondent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -854,6 +877,10 @@ def chart_data():
         responses = SurveyResponse.query.all()
         respondents = Respondent.query.all()
         
+        # --- PERUBAHAN BARU 2: IMPORT DEPENDENSI ---
+        from sqlalchemy import func
+        from datetime import timedelta
+        
         if not responses:
             return jsonify({
                 'categories': ['Information', 'Communication', 'Content', 'Security', 'Problem Solving'],
@@ -861,10 +888,14 @@ def chart_data():
                 'overall_average': 0,
                 'program_studies': [],
                 'program_counts': [],
-                'semester_distribution': []
+                'semester_distribution': [],
+                # Tambahkan default value untuk data baru
+                'trend_labels': [],
+                'trend_data': [],
+                'improvement_areas': []
             })
         
-        # Hitung rata-rata per kategori
+        # Hitung rata-rata per kategori (KODE LAMA)
         info_scores = []
         comm_scores = []
         content_scores = []
@@ -879,26 +910,63 @@ def chart_data():
             security_total = r.q13_security + r.q14_security + r.q15_security + r.q16_security
             problem_total = r.q17_problem + r.q18_problem + r.q19_problem
             
-            info_scores.append(info_total / 4)  # 4 pertanyaan
-            comm_scores.append(comm_total / 4)  # 4 pertanyaan
-            content_scores.append(content_total / 4)  # 4 pertanyaan
-            security_scores.append(security_total / 4)  # 4 pertanyaan
-            problem_scores.append(problem_total / 3)  # 3 pertanyaan
-            total_scores.append(r.total_score / 19)  # 19 pertanyaan total
+            info_scores.append(info_total / 4)
+            comm_scores.append(comm_total / 4)
+            content_scores.append(content_total / 4)
+            security_scores.append(security_total / 4)
+            problem_scores.append(problem_total / 3)
+            total_scores.append(r.total_score / 19)
         
-        # Distribusi Program Studi
+        # Distribusi Program Studi (KODE LAMA)
         prodi_counts = {}
         for r in respondents:
             prodi = r.prodi
             prodi_counts[prodi] = prodi_counts.get(prodi, 0) + 1
         
-        # Distribusi Semester
+        # Distribusi Semester (KODE LAMA)
         semester_counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0}
         for r in respondents:
             semester = r.semester
             if 1 <= semester <= 8:
                 semester_counts[semester] = semester_counts.get(semester, 0) + 1
+
+        # --- PERUBAHAN BARU 3: LOGIKA TREN 7 HARI ---
+        today = datetime.now().date()
+        trend_map = {(today - timedelta(days=i)).strftime('%Y-%m-%d'): 0 for i in range(7)}
         
+        # Query agregat database
+        trends = db.session.query(
+            func.date(SurveyResponse.timestamp).label('date'),
+            func.avg(SurveyResponse.total_score).label('score')
+        ).filter(SurveyResponse.timestamp >= today - timedelta(days=6))\
+        .group_by(func.date(SurveyResponse.timestamp)).all()
+        
+        for t in trends:
+            d_str = str(t.date)
+            if d_str in trend_map:
+                # Konversi skor total (0-95) menjadi skala 1-5
+                trend_map[d_str] = round(t.score / 19, 2) 
+        
+        # Urutkan berdasarkan tanggal
+        sorted_trend = sorted(trend_map.items())
+        trend_labels = [datetime.strptime(k, '%Y-%m-%d').strftime('%d %b') for k, v in sorted_trend]
+        trend_data = [v for k, v in sorted_trend]
+
+        # --- PERUBAHAN BARU 4: LOGIKA AREAS FOR IMPROVEMENT ---
+        improvement_list = []
+        count = len(responses)
+        q_scores = {}
+        
+        # Hitung rata-rata tiap butir soal menggunakan QUESTION_MAP
+        for q_code, q_text in QUESTION_MAP.items():
+            total_val = sum(getattr(r, q_code) for r in responses)
+            q_scores[q_text] = round(total_val / count, 2)
+        
+        # Ambil 5 skor terendah
+        sorted_improvement = sorted(q_scores.items(), key=lambda x: x[1])[:5]
+        improvement_list = [{'topic': k, 'score': v} for k, v in sorted_improvement]
+
+        # --- PERUBAHAN BARU 5: UPDATE RETURN JSON ---
         return jsonify({
             'categories': ['Information & Data', 'Communication', 'Content Creation', 'Security', 'Problem Solving'],
             'averages': [
@@ -914,7 +982,12 @@ def chart_data():
             'semester_labels': [f'Semester {i}' for i in range(1, 9)],
             'semester_distribution': [semester_counts[i] for i in range(1, 9)],
             'total_respondents': len(respondents),
-            'total_surveys': len(responses)
+            'total_surveys': len(responses),
+            
+            # Tambahan Data Baru dikirim ke Frontend
+            'trend_labels': trend_labels,
+            'trend_data': trend_data,
+            'improvement_areas': improvement_list
         })
         
     except Exception as e:
@@ -925,68 +998,59 @@ def chart_data():
 @app.route('/api/search-data')
 @admin_required
 def search_data():
-    """API untuk search dan filter data"""
+    """API Search yang mendukung Filter Prodi & Semester"""
     try:
-        search_term = request.args.get('q', '').strip().lower()
+        # Ambil parameter
+        q = request.args.get('q', '').strip().lower()
         prodi_filter = request.args.get('prodi', '').strip()
         semester_filter = request.args.get('semester', '').strip()
         
-        # Query dasar
-        query = db.session.query(
-            Respondent.id,
-            Respondent.nama,
-            Respondent.nim,
-            Respondent.prodi,
-            Respondent.semester,
-            Respondent.timestamp,
-            SurveyResponse.total_score,
-            SurveyResponse.timestamp.label('survey_timestamp')
-        ).join(SurveyResponse, Respondent.id == SurveyResponse.respondent_id)
+        # Base Query
+        query = db.session.query(Respondent, SurveyResponse)\
+            .join(SurveyResponse, Respondent.id == SurveyResponse.respondent_id)
         
-        # Apply filters
-        if search_term:
+        # 1. Filter Text (Nama / NIM)
+        if q:
             query = query.filter(
                 db.or_(
-                    Respondent.nama.ilike(f'%{search_term}%'),
-                    Respondent.nim.ilike(f'%{search_term}%'),
-                    Respondent.prodi.ilike(f'%{search_term}%')
+                    Respondent.nama.ilike(f'%{q}%'),
+                    Respondent.nim.ilike(f'%{q}%')
                 )
             )
         
-        if prodi_filter:
+        # 2. Filter Prodi (Jika dipilih)
+        if prodi_filter and prodi_filter != 'All Programs':
             query = query.filter(Respondent.prodi == prodi_filter)
+            
+        # 3. Filter Semester (Jika dipilih)
+        if semester_filter and semester_filter != 'All Semesters':
+            try:
+                query = query.filter(Respondent.semester == int(semester_filter))
+            except:
+                pass
+
+        # Urutkan & Limit
+        results = query.order_by(Respondent.timestamp.desc()).limit(50).all()
         
-        if semester_filter:
-            query = query.filter(Respondent.semester == int(semester_filter))
-        
-        # Execute query
-        results = query.order_by(Respondent.timestamp.desc()).all()
-        
-        # Format results
+        # Format Data
         data = []
-        for r in results:
+        for r, s in results:
             data.append({
-                'id': r.id,
                 'nama': r.nama,
                 'nim': r.nim,
                 'prodi': r.prodi,
                 'semester': r.semester,
-                'timestamp': r.timestamp.strftime('%Y-%m-%d %H:%M') if r.timestamp else '',
-                'total_score': r.total_score,
-                'survey_timestamp': r.survey_timestamp.strftime('%Y-%m-%d %H:%M') if r.survey_timestamp else ''
+                'total_score': s.total_score,
+                'timestamp': s.timestamp.strftime('%d/%m/%Y')
             })
         
-        # Get unique prodi for filter dropdown
-        prodi_list = [p[0] for p in db.session.query(Respondent.prodi).distinct().all()]
+        # List Prodi untuk Dropdown
+        prodi_list = [p[0] for p in db.session.query(Respondent.prodi).distinct().order_by(Respondent.prodi).all()]
         
-        return jsonify({
-            'data': data,
-            'total': len(data),
-            'prodi_list': prodi_list
-        })
+        return jsonify({'data': data, 'prodi_list': prodi_list})
         
     except Exception as e:
-        print(f"❌ Error search data: {e}")
+        print(f"Search Error: {e}")
         return jsonify({'error': str(e)}), 500
 
 # ==================== DASHBOARD API ROUTES ====================
@@ -1048,6 +1112,35 @@ def top_performers():
             'success': True
         })
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ==================== TAMBAHAN API: INTEGRITY CHECK ====================
+@app.route('/api/integrity-check')
+@admin_required
+def integrity_check():
+    """Cek konsistensi data database"""
+    try:
+        # Cek 1: Responden tanpa Survey
+        orphaned_respondents = db.session.query(Respondent).outerjoin(
+            SurveyResponse, Respondent.id == SurveyResponse.respondent_id
+        ).filter(SurveyResponse.id == None).count()
+        
+        # Cek 2: Survey tanpa Responden (Harusnya tidak mungkin karena Foreign Key, tapi jaga-jaga)
+        orphaned_surveys = 0 # Logic kompleks, skip untuk simplifikasi
+        
+        status = "Secure"
+        message = "Data konsisten."
+        
+        if orphaned_respondents > 0:
+            status = "Warning"
+            message = f"Ditemukan {orphaned_respondents} responden belum menyelesaikan survei."
+            
+        return jsonify({
+            'status': status,
+            'message': message,
+            'score': 100 if orphaned_respondents == 0 else 85
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

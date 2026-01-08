@@ -270,66 +270,16 @@
                     <!-- GAUGE CHART -->
                     <div class="chart-container medium">
                         <div class="chart-header">
-                            <h3><i class="fas fa-tachometer-alt"></i> Literasi Digital Score</h3>
+                            <h3><i class="fas fa-tachometer-alt"></i> Skor Keseluruhan</h3>
                             <div class="score-display">
-                                <span class="score-value" id="overallScore">{{ avg_score }}</span>
+                                <span class="score-value" id="overallScore">0.0</span>
                                 <span class="score-max">/5.0</span>
                             </div>
                         </div>
                         <div class="chart-body">
                             <div class="gauge-container">
                                 <canvas id="gaugeChart"></canvas>
-                                <div class="gauge-label" id="gaugeLevel">Loading...</div>
-                            </div>
-                        </div>
-                        <div class="chart-footer">
-                            <div class="progress-labels">
-                                <span>Rendah</span>
-                                <span>Sedang</span>
-                                <span>Tinggi</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SEARCH PANEL -->
-                    <div class="search-panel">
-                        <div class="panel-header">
-                            <h3><i class="fas fa-search"></i> Search & Filter</h3>
-                        </div>
-                        <div class="panel-body">
-                            <div class="search-controls">
-                                <div class="search-input-group">
-                                    <i class="fas fa-search"></i>
-                                    <input type="text" id="searchInput" placeholder="Search nama, NIM, prodi...">
-                                </div>
-                                
-                                <select id="prodiFilter" class="filter-select">
-                                    <option value="">All Programs</option>
-                                </select>
-                                
-                                <select id="semesterFilter" class="filter-select">
-                                    <option value="">All Semesters</option>
-                                    {% for i in range(1, 9) %}
-                                    <option value="{{ i }}">Semester {{ i }}</option>
-                                    {% endfor %}
-                                </select>
-                                
-                                <button onclick="searchData()" class="search-btn">
-                                    <i class="fas fa-filter"></i> Filter
-                                </button>
-                            </div>
-                            
-                            <div id="searchResults" class="search-results">
-                                <div class="results-header">
-                                    <h4>Search Results</h4>
-                                    <span id="resultsCount">0 results</span>
-                                </div>
-                                <div id="resultsTable" class="results-table">
-                                    <div class="empty-state">
-                                        <i class="fas fa-search"></i>
-                                        <p>Enter search criteria to view results</p>
-                                    </div>
-                                </div>
+                                <div class="gauge-label" id="gaugeLevel">Memuat...</div>
                             </div>
                         </div>
                     </div>
@@ -366,48 +316,67 @@
         <section id="data-section" class="dashboard-section">
             <div class="section-header">
                 <h2><i class="fas fa-database"></i> Data Management</h2>
-                <p>Manage survey data and respondents</p>
+                <p>Pusat pengelolaan data responden dan hasil survei.</p>
             </div>
             
-            <div class="data-grid">
-                <div class="data-card">
-                    <div class="data-card-header">
-                        <h3><i class="fas fa-users"></i> Respondents</h3>
-                        <span class="badge">{{ total_respondents }}</span>
-                    </div>
-                    <div class="data-card-body">
-                        <p>Total registered respondents with unique NIM</p>
-                        <div class="data-actions">
-                            <a href="/view-data#respondents" class="btn-sm">View All</a>
-                        </div>
-                    </div>
+            <div class="data-management-container">
+                <div class="filter-header">
+                    <h3><i class="fas fa-filter"></i> Filter Data</h3>
                 </div>
                 
-                <div class="data-card">
-                    <div class="data-card-header">
-                        <h3><i class="fas fa-file-signature"></i> Surveys</h3>
-                        <span class="badge">{{ total_surveys }}</span>
-                    </div>
-                    <div class="data-card-body">
-                        <p>Completed survey responses</p>
-                        <div class="data-actions">
-                            <a href="/view-data#surveys" class="btn-sm">View All</a>
+                <div class="filter-body">
+                    <div class="search-row-main">
+                        <div class="search-input-group full-width">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchInput" placeholder="Cari Nama atau NIM..." onkeyup="if(event.key === 'Enter') searchData()">
                         </div>
+                    </div>
+
+                    <div class="search-row-filters">
+                        <div class="filter-group">
+                            <label>Program Studi</label>
+                            <div class="select-wrapper">
+                                <select id="prodiFilter" class="filter-select">
+                                    <option>All Programs</option>
+                                    </select>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                        <div class="filter-group">
+                            <label>Semester</label>
+                            <div class="select-wrapper">
+                                <select id="semesterFilter" class="filter-select">
+                                    <option>All Semesters</option>
+                                    {% for i in range(1, 9) %}
+                                    <option value="{{ i }}">Semester {{ i }}</option>
+                                    {% endfor %}
+                                </select>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="search-actions">
+                        <button onclick="searchData()" class="btn-filter-action">
+                            <i class="fas fa-search"></i> Terapkan Filter
+                        </button>
+                        <button onclick="resetFilters()" class="btn-reset-action">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
                     </div>
                 </div>
+            </div>
+
+            <div id="searchResults" class="search-results-container">
+                <div class="results-header">
+                    <h4><i class="fas fa-list"></i> Hasil Pencarian</h4>
+                    <span id="resultsCount" class="result-badge">0 data</span>
+                </div>
                 
-                <div class="data-card">
-                    <div class="data-card-header">
-                        <h3><i class="fas fa-shield-alt"></i> Data Integrity</h3>
-                        <span class="badge success">100%</span>
-                    </div>
-                    <div class="data-card-body">
-                        <p>All data validated and secured</p>
-                        <div class="data-actions">
-                            <button class="btn-sm" onclick="runIntegrityCheck()">
-                                <i class="fas fa-check"></i> Verify
-                            </button>
-                        </div>
+                <div id="resultsTable" class="results-table-wrapper">
+                    <div class="empty-state">
+                        <i class="fas fa-search"></i>
+                        <p>Gunakan filter di atas untuk menampilkan data.</p>
                     </div>
                 </div>
             </div>

@@ -1,83 +1,400 @@
-// ===== CHART FUNCTIONS =====
+// static/dashboard.js - VERSI LENGKAP
+
 let categoryChart, prodiChart, semesterChart, gaugeChart, trendChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadChartData();
+    loadTopPerformers();
+    loadProdiFilter(); // Load filter dropdown
+    
+    // Aktifkan Search dengan Enter
+    const searchInput = document.getElementById('searchInput');
+    if(searchInput) {
+        searchInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') searchData();
+        });
+    }
+});
+
+// ==================== 1. SEARCH & FILTER FUNCTIONS ====================
+
+async function loadProdiFilter() {
+    try {
+        const response = await fetch('/api/search-data?limit=1'); // Fetch dummy to get prodi list
+        const data = await response.json();
+        
+        const select = document.getElementById('prodiFilter');
+        if(select && data.prodi_list) {
+            select.innerHTML = '<option>All Programs</option>'; // Reset
+            data.prodi_list.forEach(prodi => {
+                const option = document.createElement('option');
+                option.value = prodi;
+                option.textContent = prodi;
+                select.appendChild(option);
+            });
+        }
+    } catch (e) {
+        console.error('Error loading filters:', e);
+    }
+}
+
+async function searchData() {
+    const q = document.getElementById('searchInput').value;
+    const prodi = document.getElementById('prodiFilter').value;
+    const sem = document.getElementById('semesterFilter').value;
+    const tableDiv = document.getElementById('resultsTable');
+    
+    // UI Loading
+    tableDiv.innerHTML = '<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Mencari data...</div>';
+    
+    try {
+        // Build URL parameters
+        const params = new URLSearchParams();
+        if(q) params.append('q', q);
+        if(prodi && prodi !== 'All Programs') params.append('prodi', prodi);
+        if(sem && sem !== 'All Semesters') params.append('semester', sem);
+        
+        const response = await fetch(`/api/search-data?${params.toString()}`);
+        const result = await response.json();
+        
+        // Update Result Count
+        const countSpan = document.getElementById('resultsCount');
+        if(countSpan) countSpan.textContent = `${result.data.length} data ditemukan`;
+
+        if (result.data.length === 0) {
+            tableDiv.innerHTML = '<div class="text-center p-4 text-muted"><i class="fas fa-search fa-2x mb-2"></i><p>Tidak ada data ditemukan.</p></div>';
+            return;
+        }
+
+        // Render Table
+        let html = `
+        <div class="results-scroll">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nama</th>
+                        <th>NIM</th>
+                        <th>Prodi</th>
+                        <th>Skor</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+                
+        result.data.forEach(item => {
+            // Badge warna skor
+            let badgeClass = 'badge-low'; // Merah
+            let scoreScale = (item.total_score / 19).toFixed(2);
+            
+            if(scoreScale >= 3.8) badgeClass = 'badge-high'; // Hijau
+            else if(scoreScale >= 2.4) badgeClass = 'badge-medium'; // Kuning
+            
+            html += `
+            <tr>
+                <td><strong>${item.nama}</strong></td>
+                <td>${item.nim}</td>
+                <td>${item.prodi} <small class="text-muted">(Sem ${item.semester})</small></td>
+                <td><span class="score-badge ${badgeClass}">${scoreScale}</span></td>
+            </tr>`;
+        });
+        
+        html += '</tbody></table></div>';
+        tableDiv.innerHTML = html;
+        
+    } catch (e) {
+        console.error(e);
+        tableDiv.innerHTML = '<div class="alert alert-error">Gagal memuat data.</div>';
+    }
+}
+
+// ==================== 2. CHART FUNCTIONS ====================
 
 async function loadChartData() {
     try {
-        console.log('Loading chart data...');
-        
-        // Cek apakah sudah login
-        if (!document.getElementById('categoryChart')) {
-            console.warn('Chart container not found, skipping chart load');
-            return;
-        }
-        
         const response = await fetch('/api/chart-data');
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
         const data = await response.json();
         
-        if (data.error) {
-            console.error('Error from API:', data.error);
-            showError('Failed to load chart data: ' + data.error);
-            return;
-        }
+        if(data.error) return;
+
+        // Update Stats Cards
+        if(document.getElementById('total-respondents')) 
+            document.getElementById('total-respondents').textContent = data.total_respondents;
         
-        // Update statistics
-        updateDashboardStats(data);
-        
-        // Create charts
         createCategoryChart(data);
         createProdiChart(data);
         createSemesterChart(data);
         createGaugeChart(data.overall_average || 0);
         createTrendChart(data);
-        
-        console.log('Charts loaded successfully');
+        renderImprovementAreas(data.improvement_areas);
         
     } catch (error) {
-        console.error('Error loading chart data:', error);
-        showError('Network error loading chart data: ' + error.message);
-        
-        // Fallback: create empty charts
-        createEmptyCharts();
+        console.error('Chart Error:', error);
     }
 }
 
-function updateDashboardStats(data) {
-    // Update elements only if they exist
-    const elements = {
-        'total-respondents': data.total_respondents || 0,
-        'total-surveys': data.total_surveys || 0,
-        'overallScore': data.overall_average ? data.overall_average.toFixed(1) : '0.0'
-    };
+function createCategoryChart(data) {
+    const ctx = document.getElementById('categoryChart')?.getContext('2d');
+    if(!ctx) return;
+    if(categoryChart) categoryChart.destroy();
+
+    categoryChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.categories,
+            datasets: [{
+                data: data.averages,
+                backgroundColor: data.averages.map(s => s>=3.8?'#4caf50':(s>=2.4?'#ffc107':'#ff5252')),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: 5 } }
+        }
+    });
+}
+
+function createProdiChart(data) {
+    const ctx = document.getElementById('prodiChart')?.getContext('2d');
+    if(!ctx) return;
+    if(prodiChart) prodiChart.destroy();
+
+    prodiChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: data.program_studies,
+            datasets: [{
+                data: data.program_counts,
+                backgroundColor: ['#4361ee', '#3a0ca3', '#7209b7', '#f72585', '#4cc9f0'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            cutout: '65%'
+        }
+    });
+}
+
+function createSemesterChart(data) {
+    const ctx = document.getElementById('semesterChart')?.getContext('2d');
+    if(!ctx) return;
+    if(semesterChart) semesterChart.destroy();
+
+    semesterChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+            datasets: [{
+                data: data.semester_distribution,
+                backgroundColor: '#4361ee',
+                borderRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { display: false }, x: { grid: { display: false } } }
+        }
+    });
+}
+
+function createGaugeChart(score) {
+    const ctx = document.getElementById('gaugeChart')?.getContext('2d');
+    if(!ctx) return;
+    if(gaugeChart) gaugeChart.destroy();
+
+    // Update Text UI
+    const scoreEl = document.getElementById('overallScore');
+    const labelEl = document.getElementById('gaugeLevel');
     
-    for (const [id, value] of Object.entries(elements)) {
-        const element = document.getElementById(id);
-        if (element) {
-            element.textContent = value;
+    let color = '#4caf50';
+    let text = 'Tinggi';
+    
+    if(score < 3.8) { color = '#ffc107'; text = 'Sedang'; }
+    if(score < 2.4) { color = '#ff5252'; text = 'Rendah'; }
+
+    if(scoreEl) { scoreEl.textContent = score.toFixed(2); scoreEl.style.color = color; }
+    if(labelEl) { labelEl.textContent = text; labelEl.style.color = color; }
+
+    gaugeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Score', 'Gap'],
+            datasets: [{
+                data: [score, 5 - score],
+                backgroundColor: [color, '#eee'],
+                borderWidth: 0,
+                circumference: 180,
+                rotation: 270,
+                borderRadius: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '85%', // Lingkaran lebih tipis
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
+        }
+    });
+}
+
+function createTrendChart(data) {
+    const ctx = document.getElementById('trendChart')?.getContext('2d');
+    if(!ctx) return;
+    if(trendChart) trendChart.destroy();
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.trend_labels || [],
+            datasets: [{
+                label: 'Skor Harian',
+                data: data.trend_data || [],
+                borderColor: '#4361ee',
+                tension: 0.4,
+                fill: true,
+                backgroundColor: 'rgba(67, 97, 238, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { min: 1, max: 5 }, x: { grid: { display: false } } }
+        }
+    });
+}
+
+// ==================== 3. OTHER FUNCTIONS ====================
+
+async function loadTopPerformers() {
+    try {
+        const response = await fetch('/api/top-performers');
+        const data = await response.json();
+        const container = document.getElementById('topPerformers');
+        
+        if(container && data.top_performers) {
+            let html = '';
+            data.top_performers.forEach((p, i) => {
+                html += `
+                <li>
+                    <div class="performer-info">
+                        <span class="rank">${i+1}</span>
+                        <div><strong>${p.nama}</strong><br><small>${p.prodi}</small></div>
+                    </div>
+                    <span class="area-score">${(p.score/19).toFixed(1)}</span>
+                </li>`;
+            });
+            container.innerHTML = html || '<p class="text-center p-3 text-muted">Belum ada data.</p>';
+        }
+    } catch(e) { console.error(e); }
+}
+
+function renderImprovementAreas(areas) {
+    const container = document.getElementById('improvementAreas');
+    if(!container) return;
+    
+    if(areas && areas.length) {
+        let html = '';
+        areas.forEach(area => {
+            let width = (area.score / 5) * 100;
+            let color = area.score < 3 ? 'bg-danger' : 'bg-warning';
+            html += `
+            <li>
+                <div style="width:100%">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span style="font-size:12px;font-weight:600">${area.topic}</span>
+                        <span style="font-size:12px">${area.score}</span>
+                    </div>
+                    <div class="progress" style="height:6px;background:#eee;border-radius:3px">
+                        <div class="progress-bar" style="width:${width}%;background:${area.score<3?'#ff5252':'#ffc107'}"></div>
+                    </div>
+                </div>
+            </li>`;
+        });
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = '<p class="text-center p-3 text-muted">Belum ada data analisis.</p>';
+    }
+}
+
+// Fungsi Modal
+function showDeleteModal() { document.getElementById('deleteModal').classList.add('active'); }
+function closeDeleteModal() { document.getElementById('deleteModal').classList.remove('active'); }
+function confirmDeleteAll() {
+    return document.getElementById('confirmText').value === 'DELETE_ALL_2024';
+}
+
+// Fungsi untuk tombol Reset di Data Management
+function resetFilters() {
+    // Reset input text
+    const searchInput = document.getElementById('searchInput');
+    if(searchInput) searchInput.value = '';
+    
+    // Reset dropdowns ke index 0
+    const prodi = document.getElementById('prodiFilter');
+    if(prodi) prodi.selectedIndex = 0;
+    
+    const sem = document.getElementById('semesterFilter');
+    if(sem) sem.selectedIndex = 0;
+    
+    // Jalankan pencarian ulang (kosong) untuk refresh tabel
+    searchData();
+}
+
+// ==================== NAVIGATION LOGIC (PENTING) ====================
+// Fungsi untuk berpindah halaman (Dashboard <-> Data Management)
+function showSection(sectionId) {
+    // 1. Sembunyikan semua section (halaman)
+    const sections = document.querySelectorAll('.dashboard-section');
+    sections.forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none'; // Paksa sembunyi
+    });
+
+    // 2. Tampilkan section yang dipilih
+    const targetId = sectionId + '-section';
+    const targetSection = document.getElementById(targetId);
+    
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block'; // Paksa muncul
+        
+        // Khusus Data Management: Load filter saat dibuka
+        if (sectionId === 'data') {
+            loadProdiFilter();
+            searchData(); // Refresh data tabel
         }
     }
+
+    // 3. Update warna tombol Sidebar agar 'Active'
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Cari tombol yang diklik dan beri warna biru
+    const activeLink = document.querySelector(`.sidebar-menu a[href="#${sectionId}"]`);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
 }
 
-function createEmptyCharts() {
-    // Create empty charts when data fails to load
-    const emptyData = {
-        categories: ['Information', 'Communication', 'Content', 'Security', 'Problem Solving'],
-        averages: [0, 0, 0, 0, 0],
-        overall_average: 0,
-        program_studies: [],
-        program_counts: [],
-        semester_labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5', 'Sem 6', 'Sem 7', 'Sem 8'],
-        semester_distribution: [0, 0, 0, 0, 0, 0, 0, 0],
-        total_respondents: 0,
-        total_surveys: 0
-    };
+// Event Listener agar saat halaman direfresh, tetap di halaman terakhir
+document.addEventListener('DOMContentLoaded', function() {
+    // Cek URL hash (misal: #data atau #dashboard)
+    const hash = window.location.hash.substring(1);
     
-    createCategoryChart(emptyData);
-    createProdiChart(emptyData);
-    createSemesterChart(emptyData);
-    createGaugeChart(0);
-}
+    if (hash && (hash === 'data' || hash === 'charts' || hash === 'export')) {
+        showSection(hash);
+    } else {
+        showSection('dashboard'); // Default ke Dashboard
+    }
+    
+    // ... (sisa kode onload Anda yang lain: loadChartData, dll) ...
+});
