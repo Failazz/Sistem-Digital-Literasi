@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-from app import app, db, Admin, Respondent, SurveyResponse
+# Import seed_questions
+from app import app, db, Admin, Respondent, SurveyResponse, Question, seed_questions
 from werkzeug.security import generate_password_hash
 
 with app.app_context():
@@ -10,18 +11,16 @@ with app.app_context():
     db.create_all()
     
     print("👤 Membuat admin default...")
-    hashed_password = generate_password_hash('admin123', method='pbkdf2:sha256')
-    admin = Admin(username='admin', password=hashed_password)
-    db.session.add(admin)
+    hashed = generate_password_hash('admin123', method='pbkdf2:sha256')
+    db.session.add(Admin(username='admin', password=hashed))
+    
+    # INI YANG KEMARIN KURANG:
+    print("🌱 Mengisi Soal (Seeding)...")
+    seed_questions()  # Panggil fungsi yang sudah kita perbaiki teksnya
+    
     db.session.commit()
     
     print("="*60)
-    print("✅ DATABASE BERHASIL DIRESET!")
-    print(f"   Username: admin")
-    print(f"   Password: admin123")
+    print("✅ DATABASE BERHASIL DIRESET & DIISI SOAL LENGKAP!")
+    print(f"   Jumlah Soal: {Question.query.count()}")
     print("="*60)
-    
-    # Verifikasi
-    admin_check = Admin.query.first()
-    print(f"🔍 Admin di database: {admin_check.username}")
-    print(f"🔍 Panjang hash: {len(admin_check.password)} karakter")

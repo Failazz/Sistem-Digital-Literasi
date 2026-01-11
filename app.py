@@ -117,6 +117,15 @@ class Admin(db.Model):
     def __repr__(self):
         return f'<Admin {self.username}>'
 
+class Question(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False)  
+    category = db.Column(db.String(50), nullable=False)           
+    text = db.Column(db.Text, nullable=False)                     
+
+    def __repr__(self):
+        return f'<Question {self.code}>'
+
 # ==================== FUNGSI VALIDASI ====================
 def validate_nim(nim):
     """Validasi NIM: hanya angka dan minimal 8 digit"""
@@ -237,169 +246,119 @@ def login():
 # ==================== SURVEY MULTI-PAGE ROUTES ====================
 @app.route('/survey/<int:respondent_id>/info', methods=['GET', 'POST'])
 def survey_info(respondent_id):
-    """Halaman 1: Information & Data Literacy"""
-    respondent = Respondent.query.get(respondent_id)
-    if not respondent:
-        flash('Data responden tidak ditemukan!', 'error')
-        return redirect('/')
+    # 1. Ambil pertanyaan kategori 'info' dari Database
+    questions = Question.query.filter_by(category='info').order_by(Question.code).all()
     
     if request.method == 'POST':
-        try:
-            session[f'survey_{respondent_id}_info'] = {
-                'q1': int(request.form.get('q1', 0)),
-                'q2': int(request.form.get('q2', 0)),
-                'q3': int(request.form.get('q3', 0)),
-                'q4': int(request.form.get('q4', 0))
-            }
-            return redirect(url_for('survey_comm', respondent_id=respondent_id))
-        except Exception as e:
-            flash(f'Error: {str(e)}', 'error')
+        # 2. Simpan jawaban ke session secara otomatis (Looping)
+        answers = {}
+        for q in questions:
+            # Mengambil value dari form HTML berdasarkan kode (misal: q1_info)
+            answers[q.code] = int(request.form.get(q.code, 0))
+            
+        session[f'survey_{respondent_id}_info'] = answers
+        return redirect(url_for('survey_comm', respondent_id=respondent_id))
     
     return render_template('survey/survey_info.html', 
-                          respondent_id=respondent_id,
-                          respondent=respondent)
+                        respondent_id=respondent_id,
+                        respondent=Respondent.query.get(respondent_id),
+                        questions=questions) # Kirim pertanyaan ke HTML
 
 @app.route('/survey/<int:respondent_id>/comm', methods=['GET', 'POST'])
 def survey_comm(respondent_id):
-    """Halaman 2: Communication & Collaboration"""
-    respondent = Respondent.query.get(respondent_id)
-    if not respondent:
-        flash('Data responden tidak ditemukan!', 'error')
-        return redirect('/')
+    questions = Question.query.filter_by(category='comm').order_by(Question.code).all()
     
     if request.method == 'POST':
-        try:
-            session[f'survey_{respondent_id}_comm'] = {
-                'q5': int(request.form.get('q5', 0)),
-                'q6': int(request.form.get('q6', 0)),
-                'q7': int(request.form.get('q7', 0)),
-                'q8': int(request.form.get('q8', 0))
-            }
-            return redirect(url_for('survey_content', respondent_id=respondent_id))
-        except Exception as e:
-            flash(f'Error: {str(e)}', 'error')
+        answers = {}
+        for q in questions:
+            answers[q.code] = int(request.form.get(q.code, 0))
+            
+        session[f'survey_{respondent_id}_comm'] = answers
+        return redirect(url_for('survey_content', respondent_id=respondent_id))
     
-    return render_template('survey/survey_comm.html',
-                          respondent_id=respondent_id,
-                          respondent=respondent)
+    return render_template('survey/survey_comm.html', 
+                        respondent_id=respondent_id,
+                        respondent=Respondent.query.get(respondent_id),
+                        questions=questions)
 
 @app.route('/survey/<int:respondent_id>/content', methods=['GET', 'POST'])
 def survey_content(respondent_id):
-    """Halaman 3: Digital Content Creation"""
-    respondent = Respondent.query.get(respondent_id)
-    if not respondent:
-        flash('Data responden tidak ditemukan!', 'error')
-        return redirect('/')
+    questions = Question.query.filter_by(category='content').order_by(Question.code).all()
     
     if request.method == 'POST':
-        try:
-            session[f'survey_{respondent_id}_content'] = {
-                'q9': int(request.form.get('q9', 0)),
-                'q10': int(request.form.get('q10', 0)),
-                'q11': int(request.form.get('q11', 0)),
-                'q12': int(request.form.get('q12', 0))
-            }
-            return redirect(url_for('survey_security', respondent_id=respondent_id))
-        except Exception as e:
-            flash(f'Error: {str(e)}', 'error')
+        answers = {}
+        for q in questions:
+            answers[q.code] = int(request.form.get(q.code, 0))
+            
+        session[f'survey_{respondent_id}_content'] = answers
+        return redirect(url_for('survey_security', respondent_id=respondent_id))
     
-    return render_template('survey/survey_content.html',
-                          respondent_id=respondent_id,
-                          respondent=respondent)
+    return render_template('survey/survey_content.html', 
+                        respondent_id=respondent_id,
+                        respondent=Respondent.query.get(respondent_id),
+                        questions=questions)
 
 @app.route('/survey/<int:respondent_id>/security', methods=['GET', 'POST'])
 def survey_security(respondent_id):
-    """Halaman 4: Security"""
-    respondent = Respondent.query.get(respondent_id)
-    if not respondent:
-        flash('Data responden tidak ditemukan!', 'error')
-        return redirect('/')
+    questions = Question.query.filter_by(category='security').order_by(Question.code).all()
     
     if request.method == 'POST':
-        try:
-            session[f'survey_{respondent_id}_security'] = {
-                'q13': int(request.form.get('q13', 0)),
-                'q14': int(request.form.get('q14', 0)),
-                'q15': int(request.form.get('q15', 0)),
-                'q16': int(request.form.get('q16', 0))
-            }
-            return redirect(url_for('survey_problem', respondent_id=respondent_id))
-        except Exception as e:
-            flash(f'Error: {str(e)}', 'error')
+        answers = {}
+        for q in questions:
+            answers[q.code] = int(request.form.get(q.code, 0))
+            
+        session[f'survey_{respondent_id}_security'] = answers
+        return redirect(url_for('survey_problem', respondent_id=respondent_id))
     
-    return render_template('survey/survey_security.html',
-                          respondent_id=respondent_id,
-                          respondent=respondent)
+    return render_template('survey/survey_security.html', 
+                        respondent_id=respondent_id,
+                        respondent=Respondent.query.get(respondent_id),
+                        questions=questions)
 
 @app.route('/survey/<int:respondent_id>/problem', methods=['GET', 'POST'])
 def survey_problem(respondent_id):
-    """Halaman 5: Problem Solving (TERAKHIR)"""
     respondent = Respondent.query.get(respondent_id)
-    if not respondent:
-        flash('Data responden tidak ditemukan!', 'error')
-        return redirect('/')
+    questions = Question.query.filter_by(category='problem').order_by(Question.code).all()
     
     if request.method == 'POST':
         try:
-            session[f'survey_{respondent_id}_problem'] = {
-                'q17': int(request.form.get('q17', 0)),
-                'q18': int(request.form.get('q18', 0)),
-                'q19': int(request.form.get('q19', 0))
-            }
+            current_answers = {}
+            for q in questions:
+                current_answers[q.code] = int(request.form.get(q.code, 0))
             
-            all_answers = {}
-            for category in ['info', 'comm', 'content', 'security', 'problem']:
+            all_data = {}
+            for category in ['info', 'comm', 'content', 'security']:
                 cat_data = session.get(f'survey_{respondent_id}_{category}', {})
-                all_answers.update(cat_data)
+                all_data.update(cat_data)
+            all_data.update(current_answers)
             
-            total_score = sum(all_answers.values())
+            total_score = sum(all_data.values())
             
             response = SurveyResponse(
                 respondent_id=respondent_id,
-                q1_info=all_answers.get('q1', 0),
-                q2_info=all_answers.get('q2', 0),
-                q3_info=all_answers.get('q3', 0),
-                q4_info=all_answers.get('q4', 0),
-                q5_comm=all_answers.get('q5', 0),
-                q6_comm=all_answers.get('q6', 0),
-                q7_comm=all_answers.get('q7', 0),
-                q8_comm=all_answers.get('q8', 0),
-                q9_content=all_answers.get('q9', 0),
-                q10_content=all_answers.get('q10', 0),
-                q11_content=all_answers.get('q11', 0),
-                q12_content=all_answers.get('q12', 0),
-                q13_security=all_answers.get('q13', 0),
-                q14_security=all_answers.get('q14', 0),
-                q15_security=all_answers.get('q15', 0),
-                q16_security=all_answers.get('q16', 0),
-                q17_problem=all_answers.get('q17', 0),
-                q18_problem=all_answers.get('q18', 0),
-                q19_problem=all_answers.get('q19', 0),
-                total_score=total_score
+                total_score=total_score,
+                **all_data
             )
-            
             db.session.add(response)
             db.session.commit()
             
             for category in ['info', 'comm', 'content', 'security', 'problem']:
                 session.pop(f'survey_{respondent_id}_{category}', None)
             
-            print(f"✅ Survey lengkap disimpan - ID: {response.id}, NIM: {respondent.nim}, Score: {total_score}")
-            flash('Survey berhasil disimpan! Terima kasih.', 'success')
-            
-            return redirect(url_for('success'))
+            # PERBAIKAN: Redirect ke 'success_page'
+            return redirect(url_for('success_page'))
             
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Error: {e}")
-            flash(f'Terjadi error: {str(e)}', 'error')
-    
-    return render_template('survey/survey_problem.html',
-                        respondent_id=respondent_id,
-                        respondent=respondent)
+            flash(f'Error: {e}', 'error')
+
+    return render_template('survey/survey_problem.html', 
+                        respondent_id=respondent_id, 
+                        respondent=respondent, 
+                        questions=questions)
 
 @app.route('/success')
-def success():
+def success_page():
     return render_template('success.html')
 
 # ==================== ADMIN ROUTE TERPUSAT ====================
@@ -536,78 +495,6 @@ def delete_survey(survey_id):
         flash(f'Error saat menghapus survei: {str(e)}', 'error')
     
     return redirect(url_for('view_data'))
-
-@app.route('/admin/delete-all-testing', methods=['POST'])
-@admin_required
-def delete_all_testing():
-    """Hapus semua data testing (gunakan dengan hati-hati!)"""
-    try:
-        confirm_code = request.form.get('confirm_code')
-        
-        if confirm_code != 'DELETE_ALL_2024':
-            flash('Kode konfirmasi salah!', 'error')
-            return redirect(url_for('admin'))
-        
-        count_respondents = Respondent.query.count()
-        count_surveys = SurveyResponse.query.count()
-        
-        SurveyResponse.query.delete()
-        Respondent.query.delete()
-        
-        db.session.commit()
-        
-        flash(f'🗑️  SEMUA DATA TESTING DIHAPUS! ({count_respondents} responden, {count_surveys} survei)', 'warning')
-        print(f"⚠️  SEMUA DATA DIHAPUS - {count_respondents} responden, {count_surveys} survei")
-        
-        return redirect(url_for('admin'))
-        
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error menghapus semua data: {str(e)}', 'error')
-        return redirect(url_for('admin'))
-
-@app.route('/delete/batch', methods=['POST'])
-@admin_required
-def delete_batch():
-    """Hapus multiple data sekaligus (AJAX)"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'success': False, 'message': 'Data tidak valid'}), 400
-        
-        respondent_ids = data.get('respondent_ids', [])
-        survey_ids = data.get('survey_ids', [])
-        
-        deleted_count = 0
-        
-        for rid in respondent_ids:
-            respondent = Respondent.query.get(rid)
-            if respondent:
-                SurveyResponse.query.filter_by(respondent_id=rid).delete()
-                db.session.delete(respondent)
-                deleted_count += 1
-        
-        for sid in survey_ids:
-            survey = SurveyResponse.query.get(sid)
-            if survey:
-                db.session.delete(survey)
-                deleted_count += 1
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True, 
-            'message': f'Berhasil menghapus {deleted_count} data',
-            'deleted_count': deleted_count
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False, 
-            'message': f'Error: {str(e)}'
-        }), 500
 
 # ==================== PROTECTED ADMIN ROUTES ====================
 @app.route('/export/csv')
@@ -954,17 +841,26 @@ def chart_data():
 
         # --- PERUBAHAN BARU 4: LOGIKA AREAS FOR IMPROVEMENT ---
         improvement_list = []
-        count = len(responses)
-        q_scores = {}
-        
-        # Hitung rata-rata tiap butir soal menggunakan QUESTION_MAP
-        for q_code, q_text in QUESTION_MAP.items():
-            total_val = sum(getattr(r, q_code) for r in responses)
-            q_scores[q_text] = round(total_val / count, 2)
-        
-        # Ambil 5 skor terendah
-        sorted_improvement = sorted(q_scores.items(), key=lambda x: x[1])[:5]
-        improvement_list = [{'topic': k, 'score': v} for k, v in sorted_improvement]
+        if responses:
+            count = len(responses)
+            q_scores = {}
+            
+            # AMBIL DARI DATABASE, BUKAN QUESTION_MAP
+            all_questions = Question.query.all()
+            
+            for q in all_questions:
+                # getattr(r, q.code) mengambil nilai kolom secara dinamis
+                # misal: q.code = 'q1_info', dia akan ambil nilai r.q1_info
+                # Jika kolom belum ada (baru ditambah tapi model belum update), beri nilai 0
+                try:
+                    total_val = sum(getattr(r, q.code) for r in responses)
+                    q_scores[q.text] = round(total_val / count, 2)
+                except AttributeError:
+                    continue # Skip jika kolom database belum dibuat
+            
+            # Ambil 5 skor terendah
+            sorted_improvement = sorted(q_scores.items(), key=lambda x: x[1])[:5]
+            improvement_list = [{'topic': k, 'score': v} for k, v in sorted_improvement]
 
         # --- PERUBAHAN BARU 5: UPDATE RETURN JSON ---
         return jsonify({
@@ -1144,10 +1040,140 @@ def integrity_check():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ==================== ROUTES UNTUK MANAJEMEN PERTANYAAN ====================
+@app.route('/api/questions', methods=['GET', 'POST'])
+@admin_required
+def manage_questions():
+    if request.method == 'GET':
+        questions = Question.query.order_by(Question.category, Question.code).all()
+        return jsonify([{
+            'id': q.id, 
+            'code': q.code, 
+            'category': q.category, 
+            'text': q.text
+        } for q in questions])
+
+    if request.method == 'POST':
+        data = request.get_json()
+        if Question.query.filter_by(code=data['code']).first():
+            return jsonify({'error': 'Kode pertanyaan sudah ada!'}), 400
+        
+        new_q = Question(code=data['code'], category=data['category'], text=data['text'])
+        db.session.add(new_q)
+        db.session.commit()
+        return jsonify({'success': True})
+
+@app.route('/api/questions/<int:id>', methods=['PUT', 'DELETE'])
+@admin_required
+def update_question(id):
+    q = Question.query.get(id)
+    if not q: return jsonify({'error': 'Not found'}), 404
+
+    if request.method == 'DELETE':
+        db.session.delete(q)
+        db.session.commit()
+        return jsonify({'success': True})
+
+    if request.method == 'PUT':
+        data = request.get_json()
+        q.text = data.get('text', q.text)
+        # Code sebaiknya tidak diubah sembarangan karena terkait kolom DB
+        db.session.commit()
+        return jsonify({'success': True})
+
+# ==================== ROUTE TAMBAHAN (YANG HILANG) ====================
+@app.route('/admin/delete-all-testing', methods=['POST'])
+@admin_required
+def delete_all_testing():
+    """Hapus SEMUA data (Reset Total)"""
+    try:
+        # Cek kode konfirmasi dari form
+        if request.form.get('confirm_code') != 'DELETE_ALL_2024':
+            flash('Kode konfirmasi salah!', 'error')
+            return redirect(url_for('admin'))
+        
+        # Hapus data
+        num_surveys = SurveyResponse.query.delete()
+        num_respondents = Respondent.query.delete()
+        db.session.commit()
+        
+        flash(f'BERHASIL: {num_respondents} responden & {num_surveys} survei dihapus.', 'warning')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error: {e}', 'error')
+    return redirect(url_for('admin'))
+
+@app.route('/delete/batch', methods=['POST'])
+@admin_required
+def delete_batch():
+    """Hapus banyak data sekaligus (dipakai tombol Hapus di tabel)"""
+    try:
+        data = request.get_json()
+        ids = data.get('respondent_ids', [])
+        for rid in ids:
+            SurveyResponse.query.filter_by(respondent_id=rid).delete()
+            Respondent.query.filter_by(id=rid).delete()
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ==================== FUNGSI SEEDING DATABASE ====================
+def seed_questions():
+    """Mengisi database dengan pertanyaan default jika kosong"""
+    with app.app_context():
+        # Cek apakah tabel Question sudah ada isinya
+        try:
+            if Question.query.count() > 0: 
+                print("ℹ️  Database pertanyaan sudah terisi. Skip seeding.")
+                return
+        except:
+            print("⚠️ Tabel belum siap, skip seeding check.")
+            return
+
+        print("🌱 Seeding pertanyaan LENGKAP ke database...")
+        
+        # Format: (kode_unik, kategori, teks_pertanyaan)
+        initial_data = [
+            # INFO
+            ('q1_info', 'info', 'Saya mampu menggunakan kata kunci spesifik dan operator pencarian (seperti "AND", "OR", tanda kutip) untuk menemukan literatur akademik yang relevan.'),
+            ('q2_info', 'info', 'Saya selalu memeriksa kredibilitas penulis dan penerbit sebelum menggunakan artikel sebagai referensi tugas kuliah.'),
+            ('q3_info', 'info', 'Saya mampu membedakan antara informasi yang bersifat fakta, opini, dan berita bohong (hoaks) di media sosial.'),
+            ('q4_info', 'info', 'Saya memiliki sistem penyimpanan data (seperti Google Drive/iCloud) yang terorganisir sehingga mudah menemukan kembali file tugas lama.'),
+            # COMM
+            ('q5_comm', 'comm', 'Saya merasa nyaman menggunakan berbagai platform kolaborasi (Zoom, Google Docs, Trello/Notion) untuk kerja kelompok.'),
+            ('q6_comm', 'comm', 'Saya memahami etika pengiriman surel (email) formal kepada dosen (menggunakan subjek yang jelas, salam pembuka, bahasa baku).'),
+            ('q7_comm', 'comm', 'Saya sadar akan jejak digital (digital footprint) dan berhati-hati dalam memposting komentar atau foto di ruang publik digital.'),
+            ('q8_comm', 'comm', 'Saya aktif berbagi pengetahuan atau materi pembelajaran yang bermanfaat kepada teman melalui grup digital.'),
+            # CONTENT
+            ('q9_content', 'content', 'Saya mampu mengoperasikan perangkat lunak perkantoran (Word, Excel, PPT) fitur lanjut (seperti mail merge, pivot table, atau animasi slide) untuk menunjang tugas.'),
+            ('q10_content', 'content', 'Saya bisa membuat konten multimedia sederhana (infografis, video pendek, atau blog) untuk keperluan tugas atau organisasi.'),
+            ('q11_content', 'content', 'Saya memahami konsep Hak Cipta (Copyright) dan lisensi Creative Commons saat mengambil gambar/musik dari internet.'),
+            ('q12_content', 'content', 'Saya selalu mencantumkan sitasi/sumber rujukan dengan format yang benar (APA/IEEE) untuk menghindari plagiarisme.'),
+            # SECURITY
+            ('q13_security', 'security', 'Saya rutin mengganti kata sandi (password) akun akademik dan media sosial saya secara berkala.'),
+            ('q14_security', 'security', 'Saya menggunakan fitur Autentikasi Dua Faktor (2FA) pada akun-akun penting (Email, KRS Online, Medsos).'),
+            ('q15_security', 'security', 'Saya memeriksa izin akses aplikasi (app permissions) sebelum menginstalnya di gawai saya.'),
+            ('q16_security', 'security', 'Saya mampu membatasi waktu layar (screen time) jika penggunaan gawai mulai mengganggu kesehatan fisik atau tidur saya.'),
+            # PROBLEM
+            ('q17_problem', 'problem', 'Ketika menghadapi masalah teknis (misal: gagal koneksi, error aplikasi), saya mencoba mencari solusinya sendiri terlebih dahulu sebelum bertanya pada orang lain.'),
+            ('q18_problem', 'problem', 'Saya sering menggunakan alat digital/aplikasi baru untuk mempermudah manajemen waktu dan tugas kuliah saya.'),
+            ('q19_problem', 'problem', 'Saya mampu beradaptasi dengan cepat jika dosen menggunakan platform pembelajaran (LMS) baru yang belum pernah saya gunakan.')
+        ]
+        
+        for code, cat, text in initial_data:
+            # Cek double insert
+            if not Question.query.filter_by(code=code).first():
+                db.session.add(Question(code=code, category=cat, text=text))
+        
+        db.session.commit()
+        print("✅ Pertanyaan berhasil di-seed!")
+
 # ==================== JALANKAN APLIKASI ====================
 if __name__ == '__main__':
     init_database()
     create_default_admin()
+    seed_questions()
     
     print("\n" + "="*70)
     print("🌐 URL PENTING:")

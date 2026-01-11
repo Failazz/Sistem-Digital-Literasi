@@ -101,6 +101,9 @@
             <a href="#data" class="menu-item" onclick="showSection('data')">
                 <i class="fas fa-database"></i> Data Management
             </a>
+            <a href="#questions" class="menu-item" onclick="showSection('questions')">
+                <i class="fas fa-edit"></i> Kelola Soal
+            </a>
             <a href="{{ url_for('view_data') }}" class="menu-item">
                 <i class="fas fa-table"></i> Raw Data
             </a>
@@ -382,6 +385,38 @@
             </div>
         </section>
 
+        <!-- SECTION: QUESTION MANAGEMENT -->
+        <section id="questions-section" class="dashboard-section">
+            <div class="section-header">
+                <h2><i class="fas fa-edit"></i> Kelola Pertanyaan Survei</h2>
+                <p>Ubah teks pertanyaan yang tampil di halaman survei pengguna.</p>
+            </div>
+
+            <div class="data-management-container">
+                <div class="filter-header" style="justify-content: flex-end;">
+                    <button onclick="openQuestionModal()" class="btn-sm" style="background: var(--primary);">
+                        <i class="fas fa-plus"></i> Tambah Baru
+                    </button>
+                </div>
+                <div class="filter-body">
+                    <div class="results-scroll" style="max-height: 600px;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th width="15%">Kode</th>
+                                    <th width="10%">Kategori</th>
+                                    <th>Pertanyaan</th>
+                                    <th width="10%">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="questionTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- SECTION: ANALYTICS -->
         <section id="charts-section" class="dashboard-section">
             <div class="section-header">
@@ -502,6 +537,43 @@
                         <button type="submit" class="btn-danger">
                             <i class="fas fa-trash"></i> Delete All Data
                         </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- QUESTION MODAL -->
+    <div id="questionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Edit Pertanyaan</h3>
+                <button class="close-modal" onclick="closeQuestionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="questionForm">
+                    <input type="hidden" id="qId">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Kategori</label>
+                        <select id="qCategory" class="filter-select" required>
+                            <option value="info">Information</option>
+                            <option value="comm">Communication</option>
+                            <option value="content">Content</option>
+                            <option value="security">Security</option>
+                            <option value="problem">Problem Solving</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>Kode (Sesuai Database)</label>
+                        <input type="text" id="qCode" class="search-input" placeholder="ex: q1_info" required>
+                        <small style="color:red">Hati-hati mengubah kode!</small>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label>Isi Pertanyaan</label>
+                        <textarea id="qText" class="search-input" rows="4" required style="width:100%"></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="submit" class="btn" style="background:var(--primary); color:white">Simpan</button>
                     </div>
                 </form>
             </div>

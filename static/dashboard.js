@@ -347,14 +347,101 @@ function resetFilters() {
     searchData();
 }
 
+// ==================== QUESTION MANAGEMENT ====================
+async function loadQuestions() {
+    const tbody = document.getElementById('questionTableBody');
+    if (!tbody) return; // Cegah error jika elemen tidak ada
+    
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+
+    try {
+        const res = await fetch('/api/questions');
+        const data = await res.json();
+        
+        let html = '';
+        if(data.length === 0) {
+            html = '<tr><td colspan="4" class="text-center">Belum ada pertanyaan. Klik "Tambah Baru".</td></tr>';
+        } else {
+            data.forEach(q => {
+                // Escape string agar aman saat masuk ke fungsi onclick
+                const safeText = q.text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                html += `
+                <tr>
+                    <td><span class="badge" style="background:#eee; color:#333; padding:5px; border-radius:4px;">${q.code}</span></td>
+                    <td><strong>${q.category}</strong></td>
+                    <td>${q.text}</td>
+                    <td>
+                        <button onclick="editQuestion(${q.id}, '${q.code}', '${q.category}', '${safeText}')" 
+                                class="btn-sm" style="background:#ffc107; color:black; border:none; padding:5px 10px; cursor:pointer;">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                    </td>
+                </tr>`;
+            });
+        }
+        tbody.innerHTML = html;
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Gagal memuat data. Cek koneksi server.</td></tr>';
+    }
+}
+
+// Modal Functions
+function openQuestionModal() {
+    document.getElementById('questionForm').reset();
+    document.getElementById('qId').value = '';
+    document.getElementById('modalTitle').innerText = 'Tambah Pertanyaan';
+    document.getElementById('questionModal').classList.add('active');
+}
+
+function closeQuestionModal() {
+    document.getElementById('questionModal').classList.remove('active');
+}
+
+function editQuestion(id, code, cat, text) {
+    document.getElementById('qId').value = id;
+    document.getElementById('qCode').value = code;
+    document.getElementById('qCategory').value = cat;
+    document.getElementById('qText').value = text;
+    document.getElementById('modalTitle').innerText = 'Edit Pertanyaan';
+    document.getElementById('questionModal').classList.add('active');
+}
+
+// Form Submit Handler
+document.getElementById('questionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const id = document.getElementById('qId').value;
+    const url = id ? `/api/questions/${id}` : '/api/questions';
+    const method = id ? 'PUT' : 'POST';
+    
+    const payload = {
+        code: document.getElementById('qCode').value,
+        category: document.getElementById('qCategory').value,
+        text: document.getElementById('qText').value
+    };
+
+    const res = await fetch(url, {
+        method: method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    if(res.ok) {
+        closeQuestionModal();
+        loadQuestions();
+        alert('Berhasil disimpan!');
+    } else {
+        alert('Gagal menyimpan.');
+    }
+});
+
 // ==================== NAVIGATION LOGIC (PENTING) ====================
-// Fungsi untuk berpindah halaman (Dashboard <-> Data Management)
 function showSection(sectionId) {
-    // 1. Sembunyikan semua section (halaman)
+    // 1. Sembunyikan semua section
     const sections = document.querySelectorAll('.dashboard-section');
     sections.forEach(section => {
         section.classList.remove('active');
-        section.style.display = 'none'; // Paksa sembunyi
+        section.style.display = 'none';
     });
 
     // 2. Tampilkan section yang dipilih
@@ -363,38 +450,30 @@ function showSection(sectionId) {
     
     if (targetSection) {
         targetSection.classList.add('active');
-        targetSection.style.display = 'block'; // Paksa muncul
+        targetSection.style.display = 'block';
         
-        // Khusus Data Management: Load filter saat dibuka
+        // LOGIC TAMBAHAN: Load data sesuai halaman yang dibuka
         if (sectionId === 'data') {
             loadProdiFilter();
-            searchData(); // Refresh data tabel
+            searchData();
+        } else if (sectionId === 'questions') {
+            // INI YANG SEBELUMNYA KURANG:
+            if(typeof loadQuestions === 'function') {
+                loadQuestions(); 
+            } else {
+                console.error("Fungsi loadQuestions belum ada!");
+            }
         }
     }
 
-    // 3. Update warna tombol Sidebar agar 'Active'
+    // 3. Update warna tombol Sidebar
     const menuItems = document.querySelectorAll('.menu-item');
     menuItems.forEach(item => {
         item.classList.remove('active');
     });
     
-    // Cari tombol yang diklik dan beri warna biru
     const activeLink = document.querySelector(`.sidebar-menu a[href="#${sectionId}"]`);
     if (activeLink) {
         activeLink.classList.add('active');
     }
 }
-
-// Event Listener agar saat halaman direfresh, tetap di halaman terakhir
-document.addEventListener('DOMContentLoaded', function() {
-    // Cek URL hash (misal: #data atau #dashboard)
-    const hash = window.location.hash.substring(1);
-    
-    if (hash && (hash === 'data' || hash === 'charts' || hash === 'export')) {
-        showSection(hash);
-    } else {
-        showSection('dashboard'); // Default ke Dashboard
-    }
-    
-    // ... (sisa kode onload Anda yang lain: loadChartData, dll) ...
-});

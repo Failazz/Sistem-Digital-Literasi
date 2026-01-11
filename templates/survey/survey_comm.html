@@ -35,19 +35,17 @@
             </div>
 
             <form method="POST">
-                <!-- Pertanyaan 5 -->
+                {% for q in questions %}
                 <div class="question-card">
                     <div class="question-header">
-                        <span class="question-number">5</span>
-                        <span class="question-text">
-                            Saya merasa nyaman menggunakan berbagai platform kolaborasi (Zoom, Google Docs, Trello/Notion) untuk kerja kelompok.
-                        </span>
+                        <span class="question-number">{{ loop.index }}</span>
+                        <span class="question-text">{{ q.text }}</span>
                     </div>
                     <div class="rating-scale">
                         {% for score in range(1, 6) %}
                         <div class="rating-option">
-                            <input type="radio" name="q5" id="q5_{{ score }}" value="{{ score }}" required>
-                            <label for="q5_{{ score }}">{{ score }}</label>
+                            <input type="radio" name="{{ q.code }}" id="{{ q.code }}_{{ score }}" value="{{ score }}" required>
+                            <label for="{{ q.code }}_{{ score }}">{{ score }}</label>
                         </div>
                         {% endfor %}
                     </div>
@@ -56,80 +54,10 @@
                         <span>Sangat Setuju</span>
                     </div>
                 </div>
-
-                <!-- Pertanyaan 6 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">6</span>
-                        <span class="question-text">
-                            Saya memahami etika pengiriman surel (email) formal kepada dosen (menggunakan subjek yang jelas, salam pembuka, bahasa baku).
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q6" id="q6_{{ score }}" value="{{ score }}" required>
-                            <label for="q6_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
-
-                <!-- Pertanyaan 7 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">7</span>
-                        <span class="question-text">
-                            Saya sadar akan jejak digital (digital footprint) dan berhati-hati dalam memposting komentar atau foto di ruang publik digital.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q7" id="q7_{{ score }}" value="{{ score }}" required>
-                            <label for="q7_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
-
-                <!-- Pertanyaan 8 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">8</span>
-                        <span class="question-text">
-                            Saya aktif berbagi pengetahuan atau materi pembelajaran yang bermanfaat kepada teman melalui grup digital.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q8" id="q8_{{ score }}" value="{{ score }}" required>
-                            <label for="q8_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
+                {% endfor %}
 
                 <div class="btn-container">
-                    <a href="{{ url_for('survey_info', respondent_id=respondent_id) }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Kembali
-                    </a>
-                    <button type="submit" class="btn">
-                        <i class="fas fa-arrow-right"></i> Lanjut ke Bagian 3
-                    </button>
+                    <button type="submit" class="btn">Lanjut</button>
                 </div>
             </form>
         </div>
@@ -139,22 +67,5 @@
         </div>
     </div>
 
-    <script>
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const unanswered = [];
-            for(let i = 5; i <= 8; i++) {
-                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
-                    unanswered.push(i);
-                }
-            }
-            
-            if(unanswered.length > 0) {
-                e.preventDefault();
-                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
-                return false;
-            }
-            return true;
-        });
-    </script>
 </body>
 </html>

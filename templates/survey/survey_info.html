@@ -48,19 +48,17 @@
             </div>
 
             <form method="POST">
-                <!-- Pertanyaan 1 -->
+                {% for q in questions %}
                 <div class="question-card">
                     <div class="question-header">
-                        <span class="question-number">1</span>
-                        <span class="question-text">
-                            Saya mampu menggunakan kata kunci spesifik dan operator pencarian (seperti "AND", "OR", tanda kutip) untuk menemukan literatur akademik yang relevan.
-                        </span>
+                        <span class="question-number">{{ loop.index }}</span>
+                        <span class="question-text">{{ q.text }}</span>
                     </div>
                     <div class="rating-scale">
                         {% for score in range(1, 6) %}
                         <div class="rating-option">
-                            <input type="radio" name="q1" id="q1_{{ score }}" value="{{ score }}" required>
-                            <label for="q1_{{ score }}">{{ score }}</label>
+                            <input type="radio" name="{{ q.code }}" id="{{ q.code }}_{{ score }}" value="{{ score }}" required>
+                            <label for="{{ q.code }}_{{ score }}">{{ score }}</label>
                         </div>
                         {% endfor %}
                     </div>
@@ -69,77 +67,10 @@
                         <span>Sangat Setuju</span>
                     </div>
                 </div>
-
-                <!-- Pertanyaan 2 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">2</span>
-                        <span class="question-text">
-                            Saya selalu memeriksa kredibilitas penulis dan penerbit sebelum menggunakan artikel sebagai referensi tugas kuliah.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q2" id="q2_{{ score }}" value="{{ score }}" required>
-                            <label for="q2_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
-
-                <!-- Pertanyaan 3 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">3</span>
-                        <span class="question-text">
-                            Saya mampu membedakan antara informasi yang bersifat fakta, opini, dan berita bohong (hoaks) di media sosial.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q3" id="q3_{{ score }}" value="{{ score }}" required>
-                            <label for="q3_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
-
-                <!-- Pertanyaan 4 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">4</span>
-                        <span class="question-text">
-                            Saya memiliki sistem penyimpanan data (seperti Google Drive/iCloud) yang terorganisir sehingga mudah menemukan kembali file tugas lama.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q4" id="q4_{{ score }}" value="{{ score }}" required>
-                            <label for="q4_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
+                {% endfor %}
 
                 <div class="btn-container">
-                    <button type="submit" class="btn">
-                        <i class="fas fa-arrow-right"></i> Lanjut ke Bagian 2
-                    </button>
+                    <button type="submit" class="btn">Lanjut</button>
                 </div>
             </form>
         </div>
@@ -149,23 +80,5 @@
         </div>
     </div>
 
-    <script>
-        // Validasi semua pertanyaan dijawab
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const unanswered = [];
-            for(let i = 1; i <= 4; i++) {
-                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
-                    unanswered.push(i);
-                }
-            }
-            
-            if(unanswered.length > 0) {
-                e.preventDefault();
-                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
-                return false;
-            }
-            return true;
-        });
-    </script>
 </body>
 </html>

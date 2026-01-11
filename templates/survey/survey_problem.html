@@ -35,19 +35,17 @@
             </div>
 
             <form method="POST">
-                <!-- Pertanyaan 17 -->
+                {% for q in questions %}
                 <div class="question-card">
                     <div class="question-header">
-                        <span class="question-number">17</span>
-                        <span class="question-text">
-                            Ketika menghadapi masalah teknis (misal: gagal koneksi, error aplikasi), saya mencoba mencari solusinya sendiri terlebih dahulu sebelum bertanya pada orang lain.
-                        </span>
+                        <span class="question-number">{{ loop.index }}</span>
+                        <span class="question-text">{{ q.text }}</span>
                     </div>
                     <div class="rating-scale">
                         {% for score in range(1, 6) %}
                         <div class="rating-option">
-                            <input type="radio" name="q17" id="q17_{{ score }}" value="{{ score }}" required>
-                            <label for="q17_{{ score }}">{{ score }}</label>
+                            <input type="radio" name="{{ q.code }}" id="{{ q.code }}_{{ score }}" value="{{ score }}" required>
+                            <label for="{{ q.code }}_{{ score }}">{{ score }}</label>
                         </div>
                         {% endfor %}
                     </div>
@@ -56,58 +54,10 @@
                         <span>Sangat Setuju</span>
                     </div>
                 </div>
-
-                <!-- Pertanyaan 18 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">18</span>
-                        <span class="question-text">
-                            Saya sering menggunakan alat digital/aplikasi baru untuk mempermudah manajemen waktu dan tugas kuliah saya.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q18" id="q18_{{ score }}" value="{{ score }}" required>
-                            <label for="q18_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
-
-                <!-- Pertanyaan 19 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">19</span>
-                        <span class="question-text">
-                            Saya mampu beradaptasi dengan cepat jika dosen menggunakan platform pembelajaran (LMS) baru yang belum pernah saya gunakan.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q19" id="q19_{{ score }}" value="{{ score }}" required>
-                            <label for="q19_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
+                {% endfor %}
 
                 <div class="btn-container">
-                    <a href="{{ url_for('survey_security', respondent_id=respondent_id) }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Kembali
-                    </a>
-                    <button type="submit" class="btn">
-                        <i class="fas fa-paper-plane"></i> Kirim Semua Jawaban
-                    </button>
+                    <button type="submit" class="btn">Lanjut</button>
                 </div>
             </form>
         </div>
@@ -119,25 +69,15 @@
 
     <script>
         document.querySelector('form').addEventListener('submit', function(e) {
-            const unanswered = [];
-            for(let i = 17; i <= 19; i++) {
-                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
-                    unanswered.push(i);
-                }
-            }
+            // HAPUS validasi manual yang lama (looping i=17 dst)
             
-            if(unanswered.length > 0) {
-                e.preventDefault();
-                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
-                return false;
-            }
-            
-            // Konfirmasi sebelum submit akhir
+            // Cukup gunakan konfirmasi ini saja:
             if(!confirm("Apakah Anda yakin ingin mengirim semua jawaban? Setelah dikirim, Anda tidak dapat mengubah jawaban.")) {
                 e.preventDefault();
                 return false;
             }
             
+            // Biarkan form terkirim (Validasi 'required' di HTML5 yang akan bekerja)
             return true;
         });
     </script>

@@ -35,19 +35,17 @@
             </div>
 
             <form method="POST">
-                <!-- Pertanyaan 13 -->
+                {% for q in questions %}
                 <div class="question-card">
                     <div class="question-header">
-                        <span class="question-number">13</span>
-                        <span class="question-text">
-                            Saya rutin mengganti kata sandi (password) akun akademik dan media sosial saya secara berkala.
-                        </span>
+                        <span class="question-number">{{ loop.index }}</span>
+                        <span class="question-text">{{ q.text }}</span>
                     </div>
                     <div class="rating-scale">
                         {% for score in range(1, 6) %}
                         <div class="rating-option">
-                            <input type="radio" name="q13" id="q13_{{ score }}" value="{{ score }}" required>
-                            <label for="q13_{{ score }}">{{ score }}</label>
+                            <input type="radio" name="{{ q.code }}" id="{{ q.code }}_{{ score }}" value="{{ score }}" required>
+                            <label for="{{ q.code }}_{{ score }}">{{ score }}</label>
                         </div>
                         {% endfor %}
                     </div>
@@ -56,80 +54,10 @@
                         <span>Sangat Setuju</span>
                     </div>
                 </div>
-
-                <!-- Pertanyaan 14 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">14</span>
-                        <span class="question-text">
-                            Saya menggunakan fitur Autentikasi Dua Faktor (2FA) pada akun-akun penting (Email, KRS Online, Medsos).
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q14" id="q14_{{ score }}" value="{{ score }}" required>
-                            <label for="q14_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
-
-                <!-- Pertanyaan 15 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">15</span>
-                        <span class="question-text">
-                            Saya memeriksa izin akses aplikasi (app permissions) sebelum menginstalnya di gawai saya.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q15" id="q15_{{ score }}" value="{{ score }}" required>
-                            <label for="q15_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
-
-                <!-- Pertanyaan 16 -->
-                <div class="question-card">
-                    <div class="question-header">
-                        <span class="question-number">16</span>
-                        <span class="question-text">
-                            Saya mampu membatasi waktu layar (screen time) jika penggunaan gawai mulai mengganggu kesehatan fisik atau tidur saya.
-                        </span>
-                    </div>
-                    <div class="rating-scale">
-                        {% for score in range(1, 6) %}
-                        <div class="rating-option">
-                            <input type="radio" name="q16" id="q16_{{ score }}" value="{{ score }}" required>
-                            <label for="q16_{{ score }}">{{ score }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="rating-labels">
-                        <span>Sangat Tidak Setuju</span>
-                        <span>Sangat Setuju</span>
-                    </div>
-                </div>
+                {% endfor %}
 
                 <div class="btn-container">
-                    <a href="{{ url_for('survey_content', respondent_id=respondent_id) }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Kembali
-                    </a>
-                    <button type="submit" class="btn">
-                        <i class="fas fa-arrow-right"></i> Lanjut ke Bagian Terakhir
-                    </button>
+                    <button type="submit" class="btn">Lanjut</button>
                 </div>
             </form>
         </div>
@@ -139,22 +67,5 @@
         </div>
     </div>
 
-    <script>
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const unanswered = [];
-            for(let i = 13; i <= 16; i++) {
-                if(!document.querySelector(`input[name="q${i}"]:checked`)) {
-                    unanswered.push(i);
-                }
-            }
-            
-            if(unanswered.length > 0) {
-                e.preventDefault();
-                alert(`Harap jawab pertanyaan: ${unanswered.join(', ')}`);
-                return false;
-            }
-            return true;
-        });
-    </script>
 </body>
 </html>
