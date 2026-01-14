@@ -308,7 +308,7 @@ async function searchData() {
         
         // Update results info
         document.getElementById('resultsInfo').innerHTML = 
-            `<strong>${data.total}</strong> data ditemukan`;
+            `<strong>${data.total || data.data.length}</strong> data ditemukan`;
         
         // Build results table
         if (data.data.length === 0) {
@@ -325,7 +325,7 @@ async function searchData() {
                         <th>NIM</th>
                         <th>Prodi</th>
                         <th>Semester</th>
-                        <th>Total Score</th>
+                        <th>Avg Score</th>
                         <th>Tanggal</th>
                     </tr>
                 </thead>
@@ -333,8 +333,14 @@ async function searchData() {
         `;
         
         data.data.forEach(item => {
-            const scoreClass = item.total_score >= 76 ? 'badge-high' : 
-                              item.total_score >= 57 ? 'badge-medium' : 'badge-low';
+            // --- PERBAIKAN LOGIKA SKOR DI SINI ---
+            // Backend sudah mengirim nilai 1-5 (misal 4.25), jadi JANGAN DIBAGI LAGI.
+            const scoreVal = parseFloat(item.total_score);
+            
+            // Logika Warna Badge (Skala 5)
+            let scoreClass = 'badge-low';
+            if (scoreVal >= 3.8) scoreClass = 'badge-high';      // Hijau
+            else if (scoreVal >= 2.4) scoreClass = 'badge-medium'; // Kuning
             
             tableHTML += `
                 <tr>
@@ -342,7 +348,7 @@ async function searchData() {
                     <td>${item.nim}</td>
                     <td>${item.prodi}</td>
                     <td>Semester ${item.semester}</td>
-                    <td><span class="score-badge ${scoreClass}">${item.total_score}/95</span></td>
+                    <td><span class="score-badge ${scoreClass}">${scoreVal.toFixed(2)} / 5.0</span></td>
                     <td>${item.timestamp}</td>
                 </tr>
             `;

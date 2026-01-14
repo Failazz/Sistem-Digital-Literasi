@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==================== 1. SEARCH & FILTER FUNCTIONS ====================
-
 async function loadProdiFilter() {
     try {
         const response = await fetch('/api/search-data?limit=1'); // Fetch dummy to get prodi list
@@ -81,10 +80,13 @@ async function searchData() {
                 <tbody>`;
                 
         result.data.forEach(item => {
-            // Badge warna skor
-            let badgeClass = 'badge-low'; // Merah
-            let scoreScale = (item.total_score / 19).toFixed(2);
+            // --- PERBAIKAN DI SINI ---
+            // Backend sudah mengirim nilai 1-5, jadi langsung ambil saja.
+            let scoreScale = parseFloat(item.total_score).toFixed(2);
             
+            let badgeClass = 'badge-low'; // Merah
+            
+            // Logika pewarnaan (Skala 5)
             if(scoreScale >= 3.8) badgeClass = 'badge-high'; // Hijau
             else if(scoreScale >= 2.4) badgeClass = 'badge-medium'; // Kuning
             
@@ -93,7 +95,7 @@ async function searchData() {
                 <td><strong>${item.nama}</strong></td>
                 <td>${item.nim}</td>
                 <td>${item.prodi} <small class="text-muted">(Sem ${item.semester})</small></td>
-                <td><span class="score-badge ${badgeClass}">${scoreScale}</span></td>
+                <td><span class="score-badge ${badgeClass}">${scoreScale} / 5.0</span></td>
             </tr>`;
         });
         
@@ -348,11 +350,12 @@ function resetFilters() {
 }
 
 // ==================== QUESTION MANAGEMENT ====================
+// 1. Load Data ke Tabel
 async function loadQuestions() {
     const tbody = document.getElementById('questionTableBody');
-    if (!tbody) return; // Cegah error jika elemen tidak ada
+    if (!tbody) return; 
     
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading data...</td></tr>';
 
     try {
         const res = await fetch('/api/questions');
@@ -360,21 +363,36 @@ async function loadQuestions() {
         
         let html = '';
         if(data.length === 0) {
-            html = '<tr><td colspan="4" class="text-center">Belum ada pertanyaan. Klik "Tambah Baru".</td></tr>';
+            html = '<tr><td colspan="4" class="text-center">Belum ada pertanyaan.</td></tr>';
         } else {
             data.forEach(q => {
-                // Escape string agar aman saat masuk ke fungsi onclick
+                // Escape tanda kutip agar aman
                 const safeText = q.text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                
                 html += `
                 <tr>
-                    <td><span class="badge" style="background:#eee; color:#333; padding:5px; border-radius:4px;">${q.code}</span></td>
+                    <td><span class="badge" style="background:#eee; color:#333; padding:5px;">${q.code}</span></td>
                     <td><strong>${q.category}</strong></td>
                     <td>${q.text}</td>
-                    <td>
-                        <button onclick="editQuestion(${q.id}, '${q.code}', '${q.category}', '${safeText}')" 
-                                class="btn-sm" style="background:#ffc107; color:black; border:none; padding:5px 10px; cursor:pointer;">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
+                    
+                    <td style="white-space: nowrap; width: 1%;">
+                        <div style="display: flex; gap: 5px; justify-content: flex-start;">
+                            
+                            <button onclick="editQuestion(${q.id}, '${q.code}', '${q.category}', '${safeText}')" 
+                                    class="btn-sm" 
+                                    title="Edit Soal"
+                                    style="background:#ffc107; color:black; border:none; padding:6px 10px; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:5px;">
+                                <i class="fas fa-edit"></i> <span>Edit</span>
+                            </button>
+                            
+                            <button onclick="deleteQuestion(${q.id}, '${safeText}')" 
+                                    class="btn-sm" 
+                                    title="Hapus Soal"
+                                    style="background:#dc3545; color:white; border:none; padding:6px 10px; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:5px;">
+                                <i class="fas fa-trash"></i> <span>Hapus</span>
+                            </button>
+
+                        </div>
                     </td>
                 </tr>`;
             });
@@ -382,7 +400,32 @@ async function loadQuestions() {
         tbody.innerHTML = html;
     } catch (e) {
         console.error(e);
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Gagal memuat data. Cek koneksi server.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Gagal memuat data.</td></tr>';
+    }
+}
+
+// 2. Fungsi Hapus Soal (BARU)
+async function deleteQuestion(id, text) {
+    if(!confirm(`⚠️ Apakah Anda yakin ingin menghapus pertanyaan ini?\n\n"${text}"\n\nTindakan ini tidak dapat dibatalkan.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/questions/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await res.json();
+
+        if(res.ok) {
+            alert("✅ Pertanyaan berhasil dihapus!");
+            loadQuestions(); // Refresh tabel otomatis
+        } else {
+            alert("❌ Gagal menghapus: " + (result.error || 'Terjadi kesalahan'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert("❌ Error koneksi ke server.");
     }
 }
 
@@ -437,7 +480,7 @@ document.getElementById('questionForm').addEventListener('submit', async functio
 
 // ==================== NAVIGATION LOGIC (PENTING) ====================
 function showSection(sectionId) {
-    // 1. Sembunyikan semua section
+    // 1. Sembunyikan semua section (Hanya satu kali deklarasi)
     const sections = document.querySelectorAll('.dashboard-section');
     sections.forEach(section => {
         section.classList.remove('active');
@@ -452,17 +495,23 @@ function showSection(sectionId) {
         targetSection.classList.add('active');
         targetSection.style.display = 'block';
         
-        // LOGIC TAMBAHAN: Load data sesuai halaman yang dibuka
+        // --- LOGIC PER HALAMAN ---
         if (sectionId === 'data') {
-            loadProdiFilter();
-            searchData();
-        } else if (sectionId === 'questions') {
-            // INI YANG SEBELUMNYA KURANG:
+            // Load data untuk halaman Data Management
+            if(typeof loadProdiFilter === 'function') loadProdiFilter();
+            if(typeof searchData === 'function') searchData();
+        } 
+        else if (sectionId === 'questions') {
+            // Load data untuk halaman Kelola Soal (PENTING)
             if(typeof loadQuestions === 'function') {
                 loadQuestions(); 
             } else {
                 console.error("Fungsi loadQuestions belum ada!");
             }
+        }
+        else if (sectionId === 'charts' || sectionId === 'dashboard') {
+            // Refresh chart jika diperlukan (Optional)
+            if(typeof loadChartData === 'function') loadChartData();
         }
     }
 

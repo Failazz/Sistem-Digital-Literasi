@@ -69,15 +69,15 @@
 
     <script>
         document.querySelector('form').addEventListener('submit', function(e) {
-            // HAPUS validasi manual yang lama (looping i=17 dst)
+            // HAPUS validasi manual yang lama (looping i=17 dst) karena sudah ditangani HTML5 'required'
             
             // Cukup gunakan konfirmasi ini saja:
             if(!confirm("Apakah Anda yakin ingin mengirim semua jawaban? Setelah dikirim, Anda tidak dapat mengubah jawaban.")) {
-                e.preventDefault();
+                e.preventDefault(); // Batalkan jika user klik Cancel
                 return false;
             }
             
-            // Biarkan form terkirim (Validasi 'required' di HTML5 yang akan bekerja)
+            // Biarkan form terkirim
             return true;
         });
     </script>

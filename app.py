@@ -10,6 +10,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+from sqlalchemy import func
 
 load_dotenv()
 
@@ -77,54 +78,36 @@ class Respondent(db.Model):
     prodi = db.Column(db.String(50), nullable=False)
     semester = db.Column(db.Integer, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.now)
+    # Relasi ke jawaban survei
+    responses = db.relationship('SurveyResponse', backref='respondent', lazy=True)
+
+class Question(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(20), unique=True, nullable=False) # Contoh: q1_info
+    category = db.Column(db.String(50), nullable=False)          # Contoh: info
+    text = db.Column(db.Text, nullable=False)                    # Isi pertanyaan
 
 class SurveyResponse(db.Model):
+    """Menyimpan Header Survei (Siapa & Kapan)"""
     id = db.Column(db.Integer, primary_key=True)
-    respondent_id = db.Column(db.Integer, nullable=False)
-    
-    q1_info = db.Column(db.Integer, default=0)
-    q2_info = db.Column(db.Integer, default=0)
-    q3_info = db.Column(db.Integer, default=0)
-    q4_info = db.Column(db.Integer, default=0)
-    
-    q5_comm = db.Column(db.Integer, default=0)
-    q6_comm = db.Column(db.Integer, default=0)
-    q7_comm = db.Column(db.Integer, default=0)
-    q8_comm = db.Column(db.Integer, default=0)
-    
-    q9_content = db.Column(db.Integer, default=0)
-    q10_content = db.Column(db.Integer, default=0)
-    q11_content = db.Column(db.Integer, default=0)
-    q12_content = db.Column(db.Integer, default=0)
-    
-    q13_security = db.Column(db.Integer, default=0)
-    q14_security = db.Column(db.Integer, default=0)
-    q15_security = db.Column(db.Integer, default=0)
-    q16_security = db.Column(db.Integer, default=0)
-    
-    q17_problem = db.Column(db.Integer, default=0)
-    q18_problem = db.Column(db.Integer, default=0)
-    q19_problem = db.Column(db.Integer, default=0)
-    
+    respondent_id = db.Column(db.Integer, db.ForeignKey('respondent.id'), nullable=False)
     total_score = db.Column(db.Integer, default=0)
     timestamp = db.Column(db.DateTime, default=datetime.now)
+    
+    # Relasi ke detail jawaban
+    answers = db.relationship('SurveyAnswer', backref='response', lazy=True, cascade="all, delete-orphan")
+
+class SurveyAnswer(db.Model):
+    """Menyimpan Detail Jawaban per Soal (Baris demi Baris)"""
+    id = db.Column(db.Integer, primary_key=True)
+    survey_response_id = db.Column(db.Integer, db.ForeignKey('survey_response.id'), nullable=False)
+    question_code = db.Column(db.String(20), nullable=False) # Menyimpan kode soal (q1_info)
+    score = db.Column(db.Integer, nullable=False)            # Menyimpan nilai (1-5)
 
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    
-    def __repr__(self):
-        return f'<Admin {self.username}>'
-
-class Question(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(20), unique=True, nullable=False)  
-    category = db.Column(db.String(50), nullable=False)           
-    text = db.Column(db.Text, nullable=False)                     
-
-    def __repr__(self):
-        return f'<Question {self.code}>'
 
 # ==================== FUNGSI VALIDASI ====================
 def validate_nim(nim):
@@ -244,76 +227,65 @@ def login():
     return render_template('login.html')
 
 # ==================== SURVEY MULTI-PAGE ROUTES ====================
+# --- FUNGSI BANTUAN MENYIMPAN SESSION ---
+def save_survey_session(respondent_id, category, form_data):
+    """Menyimpan jawaban ke session menggunakan kode soal asli (misal: q1_info)"""
+    # Ambil daftar pertanyaan untuk kategori ini
+    questions = Question.query.filter_by(category=category).all()
+    answers = {}
+    
+    for q in questions:
+        # Ambil jawaban berdasarkan kode soal (q1_info, q5_comm, dll)
+        # Jika form mengirim 'q1' (manual) atau 'q1_info' (dinamis), kita coba keduanya
+        val = form_data.get(q.code) or form_data.get(q.code.split('_')[0])
+        answers[q.code] = int(val) if val else 0
+        
+    # Simpan ke session
+    session[f'survey_{respondent_id}_{category}'] = answers
+
 @app.route('/survey/<int:respondent_id>/info', methods=['GET', 'POST'])
 def survey_info(respondent_id):
-    # 1. Ambil pertanyaan kategori 'info' dari Database
-    questions = Question.query.filter_by(category='info').order_by(Question.code).all()
-    
     if request.method == 'POST':
-        # 2. Simpan jawaban ke session secara otomatis (Looping)
-        answers = {}
-        for q in questions:
-            # Mengambil value dari form HTML berdasarkan kode (misal: q1_info)
-            answers[q.code] = int(request.form.get(q.code, 0))
-            
-        session[f'survey_{respondent_id}_info'] = answers
+        save_survey_session(respondent_id, 'info', request.form)
         return redirect(url_for('survey_comm', respondent_id=respondent_id))
     
     return render_template('survey/survey_info.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=questions) # Kirim pertanyaan ke HTML
+                        questions=Question.query.filter_by(category='info').order_by(Question.code).all())
 
 @app.route('/survey/<int:respondent_id>/comm', methods=['GET', 'POST'])
 def survey_comm(respondent_id):
-    questions = Question.query.filter_by(category='comm').order_by(Question.code).all()
-    
     if request.method == 'POST':
-        answers = {}
-        for q in questions:
-            answers[q.code] = int(request.form.get(q.code, 0))
-            
-        session[f'survey_{respondent_id}_comm'] = answers
+        save_survey_session(respondent_id, 'comm', request.form)
         return redirect(url_for('survey_content', respondent_id=respondent_id))
     
     return render_template('survey/survey_comm.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=questions)
+                        questions=Question.query.filter_by(category='comm').order_by(Question.code).all())
 
 @app.route('/survey/<int:respondent_id>/content', methods=['GET', 'POST'])
 def survey_content(respondent_id):
-    questions = Question.query.filter_by(category='content').order_by(Question.code).all()
-    
     if request.method == 'POST':
-        answers = {}
-        for q in questions:
-            answers[q.code] = int(request.form.get(q.code, 0))
-            
-        session[f'survey_{respondent_id}_content'] = answers
+        save_survey_session(respondent_id, 'content', request.form)
         return redirect(url_for('survey_security', respondent_id=respondent_id))
     
     return render_template('survey/survey_content.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=questions)
+                        questions=Question.query.filter_by(category='content').order_by(Question.code).all())
 
 @app.route('/survey/<int:respondent_id>/security', methods=['GET', 'POST'])
 def survey_security(respondent_id):
-    questions = Question.query.filter_by(category='security').order_by(Question.code).all()
-    
     if request.method == 'POST':
-        answers = {}
-        for q in questions:
-            answers[q.code] = int(request.form.get(q.code, 0))
-            
-        session[f'survey_{respondent_id}_security'] = answers
+        save_survey_session(respondent_id, 'security', request.form)
         return redirect(url_for('survey_problem', respondent_id=respondent_id))
     
     return render_template('survey/survey_security.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=questions)
+                        questions=Question.query.filter_by(category='security').order_by(Question.code).all())
 
 @app.route('/survey/<int:respondent_id>/problem', methods=['GET', 'POST'])
 def survey_problem(respondent_id):
@@ -322,43 +294,61 @@ def survey_problem(respondent_id):
     
     if request.method == 'POST':
         try:
-            current_answers = {}
-            for q in questions:
-                current_answers[q.code] = int(request.form.get(q.code, 0))
+            # 1. Simpan jawaban halaman ini ke Session dulu
+            # (Menggunakan helper yang sama dengan halaman lain)
+            save_survey_session(respondent_id, 'problem', request.form)
             
-            all_data = {}
-            for category in ['info', 'comm', 'content', 'security']:
+            # 2. Gabungkan SEMUA data dari Session
+            all_answers = {}
+            for category in ['info', 'comm', 'content', 'security', 'problem']:
                 cat_data = session.get(f'survey_{respondent_id}_{category}', {})
-                all_data.update(cat_data)
-            all_data.update(current_answers)
+                all_answers.update(cat_data)
             
-            total_score = sum(all_data.values())
+            # 3. Hitung Total Score
+            total_score = sum(all_answers.values())
             
+            # 4. SIMPAN KE DATABASE (VERSI DINAMIS / RELATIONAL)
+            # a. Buat Header Survei dulu
             response = SurveyResponse(
                 respondent_id=respondent_id,
-                total_score=total_score,
-                **all_data
+                total_score=total_score
+                # JANGAN masukkan **all_answers di sini, karena kolom q1_info dkk sudah tidak ada!
             )
             db.session.add(response)
+            db.session.flush() # Penting! Agar kita dapat ID response yang baru dibuat
+            
+            # b. Simpan Detail Jawaban satu per satu ke tabel SurveyAnswer
+            for q_code, score_val in all_answers.items():
+                # Pastikan model SurveyAnswer sudah ada di app.py Anda
+                new_answer = SurveyAnswer(
+                    survey_response_id=response.id,
+                    question_code=q_code,
+                    score=score_val
+                )
+                db.session.add(new_answer)
+            
+            # 5. Commit Permanen
             db.session.commit()
             
+            # 6. Bersihkan Session
             for category in ['info', 'comm', 'content', 'security', 'problem']:
                 session.pop(f'survey_{respondent_id}_{category}', None)
             
-            # PERBAIKAN: Redirect ke 'success_page'
+            flash('Survey berhasil disimpan! Terima kasih.', 'success')
             return redirect(url_for('success_page'))
             
         except Exception as e:
             db.session.rollback()
-            flash(f'Error: {e}', 'error')
-
-    return render_template('survey/survey_problem.html', 
-                        respondent_id=respondent_id, 
-                        respondent=respondent, 
+            print(f"❌ Error Saving: {e}")
+            flash(f'Terjadi error: {str(e)}', 'error')
+    
+    return render_template('survey/survey_problem.html',
+                        respondent_id=respondent_id,
+                        respondent=respondent,
                         questions=questions)
 
 @app.route('/success')
-def success_page():
+def success_page(): # Gunakan nama ini
     return render_template('success.html')
 
 # ==================== ADMIN ROUTE TERPUSAT ====================
@@ -502,44 +492,53 @@ def delete_survey(survey_id):
 def export_csv():
     """Export semua data ke CSV"""
     try:
-        respondents = Respondent.query.all()
-        responses = SurveyResponse.query.all()
+        # Import Writer
+        import csv
+        from io import StringIO, BytesIO
         
+        # Ambil data
+        respondents = Respondent.query.all()
+        
+        # Siapkan Memory Buffer
         output = StringIO()
         writer = csv.writer(output)
         
-        writer.writerow([
-            'ID', 'Nama', 'NIM', 'Prodi', 'Semester', 'Timestamp',
-            'Q1_Info_KataKunci', 'Q2_Info_Kredibilitas', 'Q3_Info_FaktaOpini', 'Q4_Info_Penyimpanan',
-            'Q5_Comm_Platform', 'Q6_Comm_Email', 'Q7_Comm_JejakDigital', 'Q8_Comm_Berbagi',
-            'Q9_Content_Software', 'Q10_Content_Multimedia', 'Q11_Content_HakCipta', 'Q12_Content_Sitasi',
-            'Q13_Security_Password', 'Q14_Security_2FA', 'Q15_Security_Permissions', 'Q16_Security_ScreenTime',
-            'Q17_Problem_Teknis', 'Q18_Problem_AlatBaru', 'Q19_Problem_Adaptasi',
-            'Total_Score', 'Survey_Timestamp'
-        ])
+        # 1. Ambil Semua Pertanyaan untuk Header (Urutkan agar konsisten)
+        all_questions = Question.query.order_by(Question.category, Question.code).all()
+        question_headers = [f"{q.code} ({q.category})" for q in all_questions]
         
-        for response in responses:
-            respondent = next((r for r in respondents if r.id == response.respondent_id), None)
+        # 2. Tulis Header CSV
+        header = ['ID', 'Nama', 'NIM', 'Prodi', 'Semester', 'Timestamp_Daftar'] + question_headers + ['Total_Score', 'Survey_Timestamp']
+        writer.writerow(header)
+        
+        # 3. Tulis Data Baris per Baris
+        for r in respondents:
+            # Ambil response survei milik responden ini
+            survey = SurveyResponse.query.filter_by(respondent_id=r.id).first()
             
-            if respondent:
-                writer.writerow([
-                    respondent.id,
-                    respondent.nama,
-                    respondent.nim,
-                    respondent.prodi,
-                    respondent.semester,
-                    respondent.timestamp.strftime('%Y-%m-%d %H:%M:%S') if respondent.timestamp else '',
-                    response.q1_info, response.q2_info, response.q3_info, response.q4_info,
-                    response.q5_comm, response.q6_comm, response.q7_comm, response.q8_comm,
-                    response.q9_content, response.q10_content, response.q11_content, response.q12_content,
-                    response.q13_security, response.q14_security, response.q15_security, response.q16_security,
-                    response.q17_problem, response.q18_problem, response.q19_problem,
-                    response.total_score,
-                    response.timestamp.strftime('%Y-%m-%d %H:%M:%S') if response.timestamp else ''
-                ])
+            if survey:
+                # Ambil detail jawaban (list of objects)
+                answers = SurveyAnswer.query.filter_by(survey_response_id=survey.id).all()
+                # Ubah ke Dictionary untuk akses cepat: {'q1_info': 5, 'q2_info': 4}
+                ans_dict = {a.question_code: a.score for a in answers}
+                
+                # Susun row skor sesuai urutan header pertanyaan
+                score_row = []
+                for q in all_questions:
+                    score_row.append(ans_dict.get(q.code, 0)) # Isi 0 jika tidak dijawab
+                
+                # Gabungkan data diri + skor + total
+                row = [
+                    r.id, r.nama, r.nim, r.prodi, r.semester,
+                    r.timestamp.strftime('%Y-%m-%d %H:%M:%S') if r.timestamp else '',
+                    *score_row, # Unpack skor
+                    survey.total_score,
+                    survey.timestamp.strftime('%Y-%m-%d %H:%M:%S') if survey.timestamp else ''
+                ]
+                writer.writerow(row)
         
+        # 4. Kirim File
         output.seek(0)
-        
         return send_file(
             BytesIO(output.getvalue().encode('utf-8')),
             mimetype='text/csv',
@@ -555,48 +554,53 @@ def export_csv():
 @app.route('/export/excel')
 @admin_required
 def export_excel():
-    """Export semua data ke Excel (XLSX)"""
+    """Export semua data ke Excel"""
     try:
+        import pandas as pd
+        from io import BytesIO
+        
         respondents = Respondent.query.all()
-        responses = SurveyResponse.query.all()
+        all_questions = Question.query.order_by(Question.category, Question.code).all()
         
-        data = []
-        for response in responses:
-            respondent = next((r for r in respondents if r.id == response.respondent_id), None)
+        data_list = []
+        
+        for r in respondents:
+            survey = SurveyResponse.query.filter_by(respondent_id=r.id).first()
             
-            if respondent:
-                data.append({
-                    'ID': respondent.id,
-                    'Nama': respondent.nama,
-                    'NIM': respondent.nim,
-                    'Prodi': respondent.prodi,
-                    'Semester': respondent.semester,
-                    'Timestamp_Responden': respondent.timestamp.strftime('%Y-%m-%d %H:%M:%S') if respondent.timestamp else '',
-                    'Q1_Info_KataKunci': response.q1_info,
-                    'Q2_Info_Kredibilitas': response.q2_info,
-                    'Q3_Info_FaktaOpini': response.q3_info,
-                    'Q4_Info_Penyimpanan': response.q4_info,
-                    'Q5_Comm_Platform': response.q5_comm,
-                    'Q6_Comm_Email': response.q6_comm,
-                    'Q7_Comm_JejakDigital': response.q7_comm,
-                    'Q8_Comm_Berbagi': response.q8_comm,
-                    'Q9_Content_Software': response.q9_content,
-                    'Q10_Content_Multimedia': response.q10_content,
-                    'Q11_Content_HakCipta': response.q11_content,
-                    'Q12_Content_Sitasi': response.q12_content,
-                    'Q13_Security_Password': response.q13_security,
-                    'Q14_Security_2FA': response.q14_security,
-                    'Q15_Security_Permissions': response.q15_security,
-                    'Q16_Security_ScreenTime': response.q16_security,
-                    'Q17_Problem_Teknis': response.q17_problem,
-                    'Q18_Problem_AlatBaru': response.q18_problem,
-                    'Q19_Problem_Adaptasi': response.q19_problem,
-                    'Total_Score': response.total_score,
-                    'Timestamp_Survey': response.timestamp.strftime('%Y-%m-%d %H:%M:%S') if response.timestamp else ''
-                })
+            if survey:
+                # Base data diri
+                row_data = {
+                    'ID': r.id,
+                    'Nama': r.nama,
+                    'NIM': r.nim,
+                    'Prodi': r.prodi,
+                    'Semester': r.semester,
+                    'Timestamp_Responden': r.timestamp.strftime('%Y-%m-%d %H:%M:%S') if r.timestamp else ''
+                }
+                
+                # Ambil jawaban
+                answers = SurveyAnswer.query.filter_by(survey_response_id=survey.id).all()
+                ans_dict = {a.question_code: a.score for a in answers}
+                
+                # Isi kolom pertanyaan dinamis
+                for q in all_questions:
+                    col_name = f"{q.code}_{q.category}" # Nama kolom di Excel
+                    row_data[col_name] = ans_dict.get(q.code, 0)
+                
+                # Tambah total & timestamp survei
+                row_data['Total_Score'] = survey.total_score
+                row_data['Timestamp_Survey'] = survey.timestamp.strftime('%Y-%m-%d %H:%M:%S') if survey.timestamp else ''
+                
+                data_list.append(row_data)
         
-        df = pd.DataFrame(data)
+        # Buat DataFrame Pandas
+        if not data_list:
+            flash("Belum ada data untuk diexport.", "warning")
+            return redirect(url_for('admin'))
+
+        df = pd.DataFrame(data_list)
         
+        # Simpan ke Buffer Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='Survey Data', index=False)
@@ -619,6 +623,8 @@ def export_excel():
 @admin_required
 def view_data():
     try:
+        from sqlalchemy import func  # Wajib ada untuk fungsi rata-rata
+
         respondents = Respondent.query.all()
         responses = SurveyResponse.query.all()
         
@@ -685,7 +691,7 @@ def view_data():
             html_parts.append('<p><em>Tidak ada data responden.</em></p>')
         
         if responses:
-            html_parts.append('<h2>Data Jawaban Survei')
+            html_parts.append('<h2>Data Jawaban Survei (Skor Rata-rata)')
             html_parts.append('<span style="font-size: 14px; color: #666; margin-left: 10px;">')
             html_parts.append(f'Total: {len(responses)} data')
             html_parts.append('</span></h2>')
@@ -693,11 +699,18 @@ def view_data():
             html_parts.append('<table>')
             html_parts.append('<tr>')
             html_parts.append('<th>ID</th><th>Respondent ID</th><th>Nama</th><th>NIM</th>')
-            html_parts.append('<th>Total Score</th><th>Timestamp</th><th>Aksi</th>')
+            # HEADER TABEL DIPERBARUI
+            html_parts.append('<th>Avg Score (1-5)</th><th>Timestamp</th><th>Aksi</th>')
             html_parts.append('</tr>')
             
             for r in responses:
                 respondent = next((resp for resp in respondents if resp.id == r.respondent_id), None)
+                
+                # --- LOGIKA BARU: HITUNG RATA-RATA DINAMIS ---
+                # Menghitung rata-rata dari tabel SurveyAnswer yang terkait dengan response ini
+                avg_score = db.session.query(func.avg(SurveyAnswer.score))\
+                    .filter(SurveyAnswer.survey_response_id == r.id).scalar() or 0
+                final_score = round(float(avg_score), 2)
                 
                 html_parts.append(f'<tr id="survey-{r.id}">')
                 html_parts.append(f'<td>{r.id}</td>')
@@ -710,7 +723,8 @@ def view_data():
                     html_parts.append('<td style="color: #dc3545;">N/A</td>')
                     html_parts.append('<td style="color: #dc3545;">N/A</td>')
                 
-                html_parts.append(f'<td><strong>{r.total_score}/95</strong></td>')
+                # MENAMPILKAN SKOR HASIL HITUNGAN BARU
+                html_parts.append(f'<td><strong>{final_score} / 5.0</strong></td>')
                 html_parts.append(f'<td>{r.timestamp.strftime("%Y-%m-%d %H:%M:%S") if r.timestamp else ""}</td>')
                 
                 html_parts.append(f'''<td>
@@ -754,21 +768,21 @@ def view_data():
         import traceback
         error_detail = traceback.format_exc()
         return f"<h1>❌ Terjadi Error dalam view_data():</h1><pre>{error_detail}</pre>"
-    
+
 # ==================== ROUTES UNTUK CHART DATA ====================
 @app.route('/api/chart-data')
 @admin_required
 def chart_data():
-    """API untuk data chart"""
+    """API Chart dengan Logika Matematika Dinamis (Skala 1-5 Selalu Valid)"""
     try:
-        responses = SurveyResponse.query.all()
-        respondents = Respondent.query.all()
-        
-        # --- PERUBAHAN BARU 2: IMPORT DEPENDENSI ---
         from sqlalchemy import func
         from datetime import timedelta
         
-        if not responses:
+        # Cek apakah ada data
+        total_answers = SurveyAnswer.query.count()
+        
+        if total_answers == 0:
+            # Return data kosong default jika belum ada jawaban
             return jsonify({
                 'categories': ['Information', 'Communication', 'Content', 'Security', 'Problem Solving'],
                 'averages': [0, 0, 0, 0, 0],
@@ -776,116 +790,101 @@ def chart_data():
                 'program_studies': [],
                 'program_counts': [],
                 'semester_distribution': [],
-                # Tambahkan default value untuk data baru
                 'trend_labels': [],
                 'trend_data': [],
                 'improvement_areas': []
             })
-        
-        # Hitung rata-rata per kategori (KODE LAMA)
-        info_scores = []
-        comm_scores = []
-        content_scores = []
-        security_scores = []
-        problem_scores = []
-        total_scores = []
-        
-        for r in responses:
-            info_total = r.q1_info + r.q2_info + r.q3_info + r.q4_info
-            comm_total = r.q5_comm + r.q6_comm + r.q7_comm + r.q8_comm
-            content_total = r.q9_content + r.q10_content + r.q11_content + r.q12_content
-            security_total = r.q13_security + r.q14_security + r.q15_security + r.q16_security
-            problem_total = r.q17_problem + r.q18_problem + r.q19_problem
-            
-            info_scores.append(info_total / 4)
-            comm_scores.append(comm_total / 4)
-            content_scores.append(content_total / 4)
-            security_scores.append(security_total / 4)
-            problem_scores.append(problem_total / 3)
-            total_scores.append(r.total_score / 19)
-        
-        # Distribusi Program Studi (KODE LAMA)
-        prodi_counts = {}
-        for r in respondents:
-            prodi = r.prodi
-            prodi_counts[prodi] = prodi_counts.get(prodi, 0) + 1
-        
-        # Distribusi Semester (KODE LAMA)
-        semester_counts = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0}
-        for r in respondents:
-            semester = r.semester
-            if 1 <= semester <= 8:
-                semester_counts[semester] = semester_counts.get(semester, 0) + 1
 
-        # --- PERUBAHAN BARU 3: LOGIKA TREN 7 HARI ---
+        # ==========================================================
+        # 1. LOGIKA RATA-RATA PER KATEGORI (DINAMIS)
+        # Menghitung rata-rata (1-5) berdasarkan jawaban yang masuk di tabel SurveyAnswer
+        # Tidak peduli berapa jumlah soalnya, rata-rata akan selalu valid.
+        # ==========================================================
+        cat_stats = db.session.query(
+            Question.category, 
+            func.avg(SurveyAnswer.score)
+        ).join(Question, SurveyAnswer.question_code == Question.code)\
+        .group_by(Question.category).all()
+        
+        stats_dict = {c: float(s) for c, s in cat_stats}
+        db_categories = ['info', 'comm', 'content', 'security', 'problem']
+        
+        # List rata-rata per kategori
+        averages = [round(stats_dict.get(cat, 0), 2) for cat in db_categories]
+
+        # ==========================================================
+        # 2. LOGIKA OVERALL SCORE (SKOR KESELURUHAN)
+        # Rumus Baru: Rata-rata dari SELURUH butir jawaban (SurveyAnswer)
+        # Hasil pasti 1.0 - 5.0
+        # ==========================================================
+        overall_avg_raw = db.session.query(func.avg(SurveyAnswer.score)).scalar()
+        overall_average = round(float(overall_avg_raw), 2) if overall_avg_raw else 0
+
+        # ==========================================================
+        # 3. DISTRIBUSI PRODI & SEMESTER (Tetap)
+        # ==========================================================
+        respondents = Respondent.query.all()
+        prodi_counts = {}
+        semester_counts = {i:0 for i in range(1, 9)}
+        
+        for r in respondents:
+            prodi_counts[r.prodi] = prodi_counts.get(r.prodi, 0) + 1
+            if 1 <= r.semester <= 8:
+                semester_counts[r.semester] += 1
+
+        # ==========================================================
+        # 4. TREN HARIAN (Disesuaikan Skala 1-5)
+        # ==========================================================
         today = datetime.now().date()
         trend_map = {(today - timedelta(days=i)).strftime('%Y-%m-%d'): 0 for i in range(7)}
         
-        # Query agregat database
+        # Kita ambil rata-rata harian dari SurveyAnswer (bukan total_score response)
+        # Agar tren juga valid di skala 1-5
         trends = db.session.query(
             func.date(SurveyResponse.timestamp).label('date'),
-            func.avg(SurveyResponse.total_score).label('score')
-        ).filter(SurveyResponse.timestamp >= today - timedelta(days=6))\
+            func.avg(SurveyAnswer.score).label('avg_score')
+        ).join(SurveyAnswer, SurveyResponse.id == SurveyAnswer.survey_response_id)\
+        .filter(SurveyResponse.timestamp >= today - timedelta(days=6))\
         .group_by(func.date(SurveyResponse.timestamp)).all()
         
         for t in trends:
             d_str = str(t.date)
             if d_str in trend_map:
-                # Konversi skor total (0-95) menjadi skala 1-5
-                trend_map[d_str] = round(t.score / 19, 2) 
+                trend_map[d_str] = round(float(t.avg_score), 2)
         
-        # Urutkan berdasarkan tanggal
         sorted_trend = sorted(trend_map.items())
         trend_labels = [datetime.strptime(k, '%Y-%m-%d').strftime('%d %b') for k, v in sorted_trend]
         trend_data = [v for k, v in sorted_trend]
 
-        # --- PERUBAHAN BARU 4: LOGIKA AREAS FOR IMPROVEMENT ---
-        improvement_list = []
-        if responses:
-            count = len(responses)
-            q_scores = {}
-            
-            # AMBIL DARI DATABASE, BUKAN QUESTION_MAP
-            all_questions = Question.query.all()
-            
-            for q in all_questions:
-                # getattr(r, q.code) mengambil nilai kolom secara dinamis
-                # misal: q.code = 'q1_info', dia akan ambil nilai r.q1_info
-                # Jika kolom belum ada (baru ditambah tapi model belum update), beri nilai 0
-                try:
-                    total_val = sum(getattr(r, q.code) for r in responses)
-                    q_scores[q.text] = round(total_val / count, 2)
-                except AttributeError:
-                    continue # Skip jika kolom database belum dibuat
-            
-            # Ambil 5 skor terendah
-            sorted_improvement = sorted(q_scores.items(), key=lambda x: x[1])[:5]
-            improvement_list = [{'topic': k, 'score': v} for k, v in sorted_improvement]
+        # ==========================================================
+        # 5. AREAS FOR IMPROVEMENT (Terendah)
+        # ==========================================================
+        q_stats = db.session.query(
+            Question.text,
+            func.avg(SurveyAnswer.score)
+        ).join(Question, SurveyAnswer.question_code == Question.code)\
+        .group_by(Question.text)\
+        .order_by(func.avg(SurveyAnswer.score).asc())\
+        .limit(5).all()
+        
+        improvement_list = [{'topic': txt, 'score': round(s, 2)} for txt, s in q_stats]
 
-        # --- PERUBAHAN BARU 5: UPDATE RETURN JSON ---
+        # KEMBALIKAN DATA JSON
         return jsonify({
             'categories': ['Information & Data', 'Communication', 'Content Creation', 'Security', 'Problem Solving'],
-            'averages': [
-                round(sum(info_scores) / len(info_scores), 2),
-                round(sum(comm_scores) / len(comm_scores), 2),
-                round(sum(content_scores) / len(content_scores), 2),
-                round(sum(security_scores) / len(security_scores), 2),
-                round(sum(problem_scores) / len(problem_scores), 2)
-            ],
-            'overall_average': round(sum(total_scores) / len(total_scores), 2),
+            'averages': averages,
+            'overall_average': overall_average,
+            'total_respondents': len(respondents),
+            'total_surveys': SurveyResponse.query.count(),
             'program_studies': list(prodi_counts.keys()),
             'program_counts': list(prodi_counts.values()),
             'semester_labels': [f'Semester {i}' for i in range(1, 9)],
             'semester_distribution': [semester_counts[i] for i in range(1, 9)],
-            'total_respondents': len(respondents),
-            'total_surveys': len(responses),
-            
-            # Tambahan Data Baru dikirim ke Frontend
             'trend_labels': trend_labels,
             'trend_data': trend_data,
             'improvement_areas': improvement_list
         })
-        
+
     except Exception as e:
         print(f"❌ Error chart data: {e}")
         return jsonify({'error': str(e)}), 500
@@ -896,7 +895,7 @@ def chart_data():
 def search_data():
     """API Search yang mendukung Filter Prodi & Semester"""
     try:
-        # Ambil parameter
+        # (Import dan parameter tetap sama)
         q = request.args.get('q', '').strip().lower()
         prodi_filter = request.args.get('prodi', '').strip()
         semester_filter = request.args.get('semester', '').strip()
@@ -905,7 +904,7 @@ def search_data():
         query = db.session.query(Respondent, SurveyResponse)\
             .join(SurveyResponse, Respondent.id == SurveyResponse.respondent_id)
         
-        # 1. Filter Text (Nama / NIM)
+        # ... (Filter logic tetap sama) ...
         if q:
             query = query.filter(
                 db.or_(
@@ -913,12 +912,8 @@ def search_data():
                     Respondent.nim.ilike(f'%{q}%')
                 )
             )
-        
-        # 2. Filter Prodi (Jika dipilih)
         if prodi_filter and prodi_filter != 'All Programs':
             query = query.filter(Respondent.prodi == prodi_filter)
-            
-        # 3. Filter Semester (Jika dipilih)
         if semester_filter and semester_filter != 'All Semesters':
             try:
                 query = query.filter(Respondent.semester == int(semester_filter))
@@ -931,16 +926,25 @@ def search_data():
         # Format Data
         data = []
         for r, s in results:
+            # Hitung rata-rata skor dari tabel SurveyAnswer
+            # Pastikan tabel SurveyAnswer menyimpan nilai 1-5, bukan 0
+            avg_score = db.session.query(func.avg(SurveyAnswer.score))\
+                .filter(SurveyAnswer.survey_response_id == s.id).scalar() or 0
+            
+            # --- DEBUGGING (Opsional: Cek di terminal) ---
+            print(f"DEBUG: ID={s.id}, AvgScore={avg_score}") 
+            
             data.append({
                 'nama': r.nama,
                 'nim': r.nim,
                 'prodi': r.prodi,
                 'semester': r.semester,
-                'total_score': s.total_score,
+                # Kirim nilai 1-5 murni
+                'total_score': round(float(avg_score), 2),
                 'timestamp': s.timestamp.strftime('%d/%m/%Y')
             })
         
-        # List Prodi untuk Dropdown
+        # List Prodi
         prodi_list = [p[0] for p in db.session.query(Respondent.prodi).distinct().order_by(Respondent.prodi).all()]
         
         return jsonify({'data': data, 'prodi_list': prodi_list})
@@ -1041,9 +1045,11 @@ def integrity_check():
         return jsonify({'error': str(e)}), 500
 
 # ==================== ROUTES UNTUK MANAJEMEN PERTANYAAN ====================
+# 1. Rute untuk Koleksi (List Semua & Tambah Baru)
 @app.route('/api/questions', methods=['GET', 'POST'])
 @admin_required
 def manage_questions():
+    # --- GET: Ambil Semua Data ---
     if request.method == 'GET':
         questions = Question.query.order_by(Question.category, Question.code).all()
         return jsonify([{
@@ -1053,15 +1059,69 @@ def manage_questions():
             'text': q.text
         } for q in questions])
 
+    # --- POST: Tambah Data Baru (Auto-Code) ---
     if request.method == 'POST':
-        data = request.get_json()
-        if Question.query.filter_by(code=data['code']).first():
-            return jsonify({'error': 'Kode pertanyaan sudah ada!'}), 400
-        
-        new_q = Question(code=data['code'], category=data['category'], text=data['text'])
-        db.session.add(new_q)
-        db.session.commit()
-        return jsonify({'success': True})
+        try:
+            d = request.get_json()
+            category = d['category']
+            text = d['text']
+
+            # --- LOGIKA AUTO-CODE GENERATOR ---
+            import re
+            all_q = Question.query.all()
+            max_num = 0
+            for q in all_q:
+                # Regex ambil angka: q19_info -> 19
+                match = re.match(r'q(\d+)_', q.code)
+                if match:
+                    n = int(match.group(1))
+                    if n > max_num: max_num = n
+            
+            # Buat kode baru: q20_kategori
+            new_code = f"q{max_num + 1}_{category}"
+            
+            # Cek unik (Jaga-jaga)
+            if Question.query.filter_by(code=new_code).first():
+                new_code += "_new"
+
+            new_q = Question(code=new_code, category=category, text=text)
+            db.session.add(new_q)
+            db.session.commit()
+            
+            return jsonify({'success': True, 'message': f'Pertanyaan ditambahkan: {new_code}'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+
+# 2. Rute untuk Item Spesifik (Update & Delete)
+@app.route('/api/questions/<int:id>', methods=['PUT', 'DELETE'])
+@admin_required
+def handle_specific_question(id):
+    q = Question.query.get(id)
+    if not q:
+        return jsonify({'error': 'Pertanyaan tidak ditemukan'}), 404
+
+    # --- DELETE: Hapus Pertanyaan (INI YANG ANDA MINTA) ---
+    if request.method == 'DELETE':
+        try:
+            db.session.delete(q)
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Pertanyaan berhasil dihapus'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    # --- PUT: Update Pertanyaan ---
+    if request.method == 'PUT':
+        try:
+            data = request.get_json()
+            q.text = data.get('text', q.text)
+            # Kode soal sebaiknya tidak diubah via Edit untuk menjaga konsistensi data jawaban
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Pertanyaan diperbarui'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
 
 @app.route('/api/questions/<int:id>', methods=['PUT', 'DELETE'])
 @admin_required
