@@ -289,7 +289,7 @@ async function loadTopPerformers() {
                         <span class="rank">${i+1}</span>
                         <div><strong>${p.nama}</strong><br><small>${p.prodi}</small></div>
                     </div>
-                    <span class="area-score">${(p.score/19).toFixed(1)}</span>
+                    <span class="area-score" style="font-weight:bold; color:#2563eb;">${parseFloat(p.score).toFixed(1)}</span>
                 </li>`;
             });
             container.innerHTML = html || '<p class="text-center p-3 text-muted">Belum ada data.</p>';
@@ -329,7 +329,12 @@ function renderImprovementAreas(areas) {
 function showDeleteModal() { document.getElementById('deleteModal').classList.add('active'); }
 function closeDeleteModal() { document.getElementById('deleteModal').classList.remove('active'); }
 function confirmDeleteAll() {
-    return document.getElementById('confirmText').value === 'DELETE_ALL_2024';
+    var input = document.getElementById('confirmText').value;
+    if (input !== 'DELETE_ALL') {
+        alert('Kode konfirmasi salah! Ketik: DELETE_ALL');
+        return false; // Mencegah form terkirim jika salah ketik
+    }
+    return true;
 }
 
 // Fungsi untuk tombol Reset di Data Management

@@ -295,7 +295,6 @@ def survey_problem(respondent_id):
     if request.method == 'POST':
         try:
             # 1. Simpan jawaban halaman ini ke Session dulu
-            # (Menggunakan helper yang sama dengan halaman lain)
             save_survey_session(respondent_id, 'problem', request.form)
             
             # 2. Gabungkan SEMUA data dari Session
@@ -307,30 +306,51 @@ def survey_problem(respondent_id):
             # 3. Hitung Total Score
             total_score = sum(all_answers.values())
             
-            # 4. SIMPAN KE DATABASE (VERSI DINAMIS / RELATIONAL)
-            # a. Buat Header Survei dulu
-            response = SurveyResponse(
-                respondent_id=respondent_id,
-                total_score=total_score
-                # JANGAN masukkan **all_answers di sini, karena kolom q1_info dkk sudah tidak ada!
-            )
-            db.session.add(response)
-            db.session.flush() # Penting! Agar kita dapat ID response yang baru dibuat
+            # --- PERBAIKAN VITAL DI SINI ---
+            # 4. CEK & SIMPAN KE DATABASE (Mencegah Duplikasi)
             
-            # b. Simpan Detail Jawaban satu per satu ke tabel SurveyAnswer
+            # Cek apakah survey_response untuk responden ini SUDAH ADA?
+            existing_response = SurveyResponse.query.filter_by(respondent_id=respondent_id).first()
+            
+            if existing_response:
+                # KONDISI A: SUDAH ADA -> UPDATE DATA LAMA
+                print(f"🔄 Mengupdate survei lama untuk Responden ID: {respondent_id}")
+                
+                # Update skor dan waktu
+                existing_response.total_score = total_score
+                existing_response.timestamp = datetime.now()
+                
+                # Hapus detail jawaban lama (SurveyAnswer) agar tidak numpuk/duplikat
+                # Kita hapus dulu anaknya, nanti di bawah kita insert ulang yang baru
+                SurveyAnswer.query.filter_by(survey_response_id=existing_response.id).delete()
+                
+                response = existing_response # Gunakan objek lama
+                
+            else:
+                # KONDISI B: BELUM ADA -> BUAT BARU
+                print(f"✨ Membuat survei baru untuk Responden ID: {respondent_id}")
+                response = SurveyResponse(
+                    respondent_id=respondent_id,
+                    total_score=total_score
+                )
+                db.session.add(response)
+            
+            # Flush untuk memastikan kita punya ID response (baik lama maupun baru)
+            db.session.flush() 
+            
+            # 5. Simpan Detail Jawaban (SurveyAnswer)
             for q_code, score_val in all_answers.items():
-                # Pastikan model SurveyAnswer sudah ada di app.py Anda
                 new_answer = SurveyAnswer(
-                    survey_response_id=response.id,
+                    survey_response_id=response.id, # ID ini aman (bisa ID lama/baru)
                     question_code=q_code,
                     score=score_val
                 )
                 db.session.add(new_answer)
             
-            # 5. Commit Permanen
+            # 6. Commit Permanen
             db.session.commit()
             
-            # 6. Bersihkan Session
+            # 7. Bersihkan Session
             for category in ['info', 'comm', 'content', 'security', 'problem']:
                 session.pop(f'survey_{respondent_id}_{category}', None)
             
@@ -985,17 +1005,19 @@ def dashboard_stats():
 @app.route('/api/top-performers')
 @admin_required
 def top_performers():
-    """API untuk top performers"""
+    """API untuk top performers - REVISI AGAR TIDAK LEBIH DARI 5.0"""
     try:
-        # Join respondents with survey responses
+        # Kita perlu menghitung rata-rata per Responden, bukan Total Score
         results = db.session.query(
             Respondent.nama,
             Respondent.nim,
             Respondent.prodi,
-            SurveyResponse.total_score
+            func.avg(SurveyAnswer.score).label('average_score') # Pakai Rata-rata
         ).join(SurveyResponse, Respondent.id == SurveyResponse.respondent_id)\
-        .order_by(SurveyResponse.total_score.desc())\
-        .limit(10)\
+        .join(SurveyAnswer, SurveyResponse.id == SurveyAnswer.survey_response_id)\
+        .group_by(Respondent.id)\
+        .order_by(func.avg(SurveyAnswer.score).desc())\
+        .limit(5)\
         .all()
         
         top_performers = []
@@ -1004,7 +1026,7 @@ def top_performers():
                 'nama': r.nama,
                 'nim': r.nim,
                 'prodi': r.prodi,
-                'score': r.total_score
+                'score': round(float(r.average_score), 1) # Hasil pasti 1.0 - 5.0
             })
         
         return jsonify({
@@ -1013,6 +1035,7 @@ def top_performers():
         })
         
     except Exception as e:
+        print(f"Error Top Performers: {e}")
         return jsonify({'error': str(e)}), 500
 
 # ==================== TAMBAHAN API: INTEGRITY CHECK ====================
@@ -1148,18 +1171,21 @@ def delete_all_testing():
     """Hapus SEMUA data (Reset Total)"""
     try:
         # Cek kode konfirmasi dari form
-        if request.form.get('confirm_code') != 'DELETE_ALL_2024':
+        if request.form.get('confirm_code') != 'DELETE_ALL':
             flash('Kode konfirmasi salah!', 'error')
             return redirect(url_for('admin'))
         
         # Hapus data
+        num_answers = SurveyAnswer.query.delete()
         num_surveys = SurveyResponse.query.delete()
         num_respondents = Respondent.query.delete()
+        
         db.session.commit()
         
-        flash(f'BERHASIL: {num_respondents} responden & {num_surveys} survei dihapus.', 'warning')
+        flash(f'BERHASIL: {num_respondents} responden, {num_surveys} survei, & {num_answers} jawaban dihapus.', 'warning')
     except Exception as e:
         db.session.rollback()
+        print(f"Error Delete All: {e}")
         flash(f'Error: {e}', 'error')
     return redirect(url_for('admin'))
 

@@ -36,7 +36,7 @@
     gap: 12px;
     font-size: 22px;
     font-weight: 700;
-    color: #4361ee;
+    color: #1e3a8a;
 }
 
 .nav-logo i {
@@ -62,7 +62,7 @@
 
 .user-info i {
     font-size: 20px;
-    color: #4361ee;
+    color: #1e3a8a;
 }
 
 .logout-btn {
@@ -113,7 +113,7 @@
 }
 
 .sidebar-header i {
-    color: #4361ee;
+    color: #1e3a8a;
 }
 
 .sidebar-menu {
@@ -141,11 +141,11 @@
 
 .menu-item:hover {
     background: #f0f4ff;
-    color: #4361ee;
+    color: #1e3a8a;
 }
 
 .menu-item.active {
-    background: linear-gradient(135deg, #4361ee, #3a56d4);
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
     color: white;
     box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
 }
@@ -170,7 +170,7 @@
 }
 
 .system-info i {
-    color: #4361ee;
+    color: #1e3a8a;
     width: 20px;
 }
 
@@ -246,7 +246,7 @@
 
 /* WELCOME CARD */
 .welcome-card {
-    background: linear-gradient(135deg, #4361ee, #7209b7);
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
     color: white;
     border-radius: 20px;
     padding: 35px;
@@ -434,8 +434,8 @@
 
 .chart-btn:hover {
     background: #f5f7fa;
-    border-color: #4361ee;
-    color: #4361ee;
+    border-color: #1e3a8a;
+    color: #1e3a8a;
 }
 
 .chart-body {
@@ -554,7 +554,7 @@
 .score-value {
     font-size: 36px;
     font-weight: 700;
-    color: #4361ee;
+    color: #1e3a8a;
 }
 
 .score-max {
@@ -618,8 +618,8 @@
 
 #searchInput:focus {
     outline: none;
-    border-color: #4361ee;
-    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    border-color: #1e3a8a;
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
 }
 
 .filter-select {
@@ -633,7 +633,7 @@
 
 .search-btn {
     padding: 12px 20px;
-    background: linear-gradient(135deg, #4361ee, #3a56d4);
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -731,7 +731,7 @@
 
 .action-btn i {
     font-size: 24px;
-    color: #4361ee;
+    color: #1e3a8a;
 }
 
 .action-btn span {
@@ -740,7 +740,7 @@
 }
 
 .action-btn:hover {
-    background: #4361ee;
+    background: #1e3a8a;
     color: white;
     transform: translateY(-3px);
     box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
@@ -843,7 +843,7 @@
 
 .btn-sm {
     padding: 8px 16px;
-    background: #4361ee;
+    background: #1e3a8a;
     color: white;
     border: none;
     border-radius: 6px;
@@ -950,7 +950,7 @@
 
 .export-icon {
     font-size: 48px;
-    color: #4361ee;
+    color: #1e3a8a;
     margin-bottom: 20px;
 }
 
@@ -968,7 +968,7 @@
 .export-btn {
     display: inline-block;
     padding: 12px 25px;
-    background: linear-gradient(135deg, #4361ee, #3a56d4);
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
     color: white;
     border-radius: 8px;
     text-decoration: none;
@@ -1288,7 +1288,7 @@
 }
 
 .btn-filter-action {
-    background: linear-gradient(135deg, #4361ee, #3a56d4);
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
     color: white;
     border: none;
     padding: 14px 30px;

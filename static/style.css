@@ -1,8 +1,8 @@
 /* ===== VARIABLES & RESET ===== */
 :root {
-    --primary: #4361ee;
+    --primary: #1e3a8a;
     --primary-dark: #3a56d4;
-    --secondary: #7209b7;
+    --secondary: #3b82f6;
     --success: #4cc9f0;
     --light: #f8f9fa;
     --dark: #212529;
@@ -446,7 +446,7 @@ AKHIR DARI UPDATE
 
 /* ===== CATEGORY INFO ===== */
 .category-info {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
     color: white;
     padding: 20px;
     border-radius: 10px;
