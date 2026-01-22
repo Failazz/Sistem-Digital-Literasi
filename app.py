@@ -134,11 +134,11 @@ def create_default_admin():
         try:
             admin = Admin.query.filter_by(username='admin').first()
             if not admin:
-                hashed_password = generate_password_hash('admin123', method='pbkdf2:sha256')
+                hashed_password = generate_password_hash('rahasiadapur', method='pbkdf2:sha256')
                 default_admin = Admin(username='admin', password=hashed_password)
                 db.session.add(default_admin)
                 db.session.commit()
-                print("✅ Admin default dibuat - Username: admin, Password: admin123")
+                print("✅ Admin default dibuat - Username: admin, Password: rahasiadapur")
         except Exception as e:
             print(f"⚠️  Gagal membuat admin: {e}")
 
@@ -1311,7 +1311,7 @@ if __name__ == '__main__':
     print("="*70)
     print("🔐 Login Admin Default:")
     print("   Username: admin")
-    print("   Password: admin123")
+    print("   Password: rahasiadapur")
     print("="*70)
     print("🚀 Server starting...")
     print("="*70)

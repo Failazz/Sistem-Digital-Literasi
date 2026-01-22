@@ -11,7 +11,7 @@ with app.app_context():
     db.create_all()
     
     print("👤 Membuat admin default...")
-    hashed = generate_password_hash('admin123', method='pbkdf2:sha256')
+    hashed = generate_password_hash('rahasiadapur', method='pbkdf2:sha256')
     db.session.add(Admin(username='admin', password=hashed))
     
     # INI YANG KEMARIN KURANG:
