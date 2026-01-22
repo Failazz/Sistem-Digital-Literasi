@@ -57,7 +57,8 @@
                     <div class="rating-scale">
                         {% for score in range(1, 6) %}
                         <div class="rating-option">
-                            <input type="radio" name="{{ q.code }}" id="{{ q.code }}_{{ score }}" value="{{ score }}" required>
+                            <input type="radio" name="{{ q.code }}" id="{{ q.code }}_{{ score }}" value="{{ score }}" required
+                                {% if saved_answers.get(q.code) == score %}checked{% endif %}>
                             <label for="{{ q.code }}_{{ score }}">{{ score }}</label>
                         </div>
                         {% endfor %}
@@ -79,7 +80,7 @@
         </div>
 
         <div class="footer">
-            <p>© 2024 Survei Literasi Digital | Bagian 1: Information & Data Literacy</p>
+            <p>© 2026 Survei Literasi Digital | Bagian 1: Information & Data Literacy</p>
         </div>
     </div>
 

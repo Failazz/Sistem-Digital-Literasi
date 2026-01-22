@@ -196,8 +196,8 @@ def login():
             
             try:
                 semester_int = int(semester)
-                if semester_int < 1 or semester_int > 8:
-                    flash('Semester harus antara 1-8', 'error')
+                if semester_int < 1 or semester_int > 14:
+                    flash('Semester harus antara 1-14', 'error')
                     return render_template('login.html')
             except ValueError:
                 flash('Semester harus berupa angka', 'error')
@@ -243,16 +243,47 @@ def save_survey_session(respondent_id, category, form_data):
     # Simpan ke session
     session[f'survey_{respondent_id}_{category}'] = answers
 
+# --- FUNGSI BANTUAN BARU: SMART RETRIEVAL ---
+def get_smart_answers(respondent_id, category):
+    """
+    Mengambil jawaban dengan prioritas:
+    1. Session (Jika user sedang mengisi/mengedit baru)
+    2. Database (Jika user menekan Back setelah submit/session habis)
+    """
+    # 1. Cek Session
+    session_key = f'survey_{respondent_id}_{category}'
+    if session.get(session_key):
+        return session[session_key]
+    
+    # 2. Cek Database (Fallback jika session kosong)
+    existing_survey = SurveyResponse.query.filter_by(respondent_id=respondent_id).first()
+    if existing_survey:
+        # Ambil jawaban dari DB yang sesuai kategori ini
+        # Join tabel SurveyAnswer dengan Question untuk filter kategori
+        db_answers = db.session.query(SurveyAnswer)\
+            .join(Question, SurveyAnswer.question_code == Question.code)\
+            .filter(SurveyAnswer.survey_response_id == existing_survey.id, Question.category == category)\
+            .all()
+        
+        # Convert ke format dictionary {kode: skor}
+        return {a.question_code: a.score for a in db_answers}
+    
+    return {}
+
 @app.route('/survey/<int:respondent_id>/info', methods=['GET', 'POST'])
 def survey_info(respondent_id):
     if request.method == 'POST':
         save_survey_session(respondent_id, 'info', request.form)
         return redirect(url_for('survey_comm', respondent_id=respondent_id))
     
+    # AMBIL JAWABAN DARI SESSION (JIKA ADA)
+    saved_answers = get_smart_answers(respondent_id, 'info')
+    
     return render_template('survey/survey_info.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=Question.query.filter_by(category='info').order_by(Question.code).all())
+                        questions=Question.query.filter_by(category='info').order_by(Question.code).all(),
+                        saved_answers=saved_answers) # <-- KIRIM KE HTML
 
 @app.route('/survey/<int:respondent_id>/comm', methods=['GET', 'POST'])
 def survey_comm(respondent_id):
@@ -260,10 +291,13 @@ def survey_comm(respondent_id):
         save_survey_session(respondent_id, 'comm', request.form)
         return redirect(url_for('survey_content', respondent_id=respondent_id))
     
+    saved_answers = get_smart_answers(respondent_id, 'comm')
+    
     return render_template('survey/survey_comm.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=Question.query.filter_by(category='comm').order_by(Question.code).all())
+                        questions=Question.query.filter_by(category='comm').order_by(Question.code).all(),
+                        saved_answers=saved_answers)
 
 @app.route('/survey/<int:respondent_id>/content', methods=['GET', 'POST'])
 def survey_content(respondent_id):
@@ -271,10 +305,13 @@ def survey_content(respondent_id):
         save_survey_session(respondent_id, 'content', request.form)
         return redirect(url_for('survey_security', respondent_id=respondent_id))
     
+    saved_answers = get_smart_answers(respondent_id, 'content')
+    
     return render_template('survey/survey_content.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=Question.query.filter_by(category='content').order_by(Question.code).all())
+                        questions=Question.query.filter_by(category='content').order_by(Question.code).all(),
+                        saved_answers=saved_answers)
 
 @app.route('/survey/<int:respondent_id>/security', methods=['GET', 'POST'])
 def survey_security(respondent_id):
@@ -282,10 +319,13 @@ def survey_security(respondent_id):
         save_survey_session(respondent_id, 'security', request.form)
         return redirect(url_for('survey_problem', respondent_id=respondent_id))
     
+    saved_answers = get_smart_answers(respondent_id, 'security')
+    
     return render_template('survey/survey_security.html', 
                         respondent_id=respondent_id,
                         respondent=Respondent.query.get(respondent_id),
-                        questions=Question.query.filter_by(category='security').order_by(Question.code).all())
+                        questions=Question.query.filter_by(category='security').order_by(Question.code).all(),
+                        saved_answers=saved_answers)
 
 @app.route('/survey/<int:respondent_id>/problem', methods=['GET', 'POST'])
 def survey_problem(respondent_id):
@@ -294,63 +334,49 @@ def survey_problem(respondent_id):
     
     if request.method == 'POST':
         try:
-            # 1. Simpan jawaban halaman ini ke Session dulu
+            # 1. Simpan jawaban halaman ini ke Session
             save_survey_session(respondent_id, 'problem', request.form)
             
-            # 2. Gabungkan SEMUA data dari Session
+            # 2. Gabungkan Data (MERGE SESSION + DATABASE)
+            # Logika: Jika session kosong (karena back), ambil dari DB agar data lama tidak hilang
             all_answers = {}
             for category in ['info', 'comm', 'content', 'security', 'problem']:
-                cat_data = session.get(f'survey_{respondent_id}_{category}', {})
+                # Gunakan fungsi smart yang kita buat tadi
+                cat_data = get_smart_answers(respondent_id, category)
                 all_answers.update(cat_data)
             
             # 3. Hitung Total Score
             total_score = sum(all_answers.values())
             
-            # --- PERBAIKAN VITAL DI SINI ---
-            # 4. CEK & SIMPAN KE DATABASE (Mencegah Duplikasi)
-            
-            # Cek apakah survey_response untuk responden ini SUDAH ADA?
+            # 4. Cek & Simpan ke Database
             existing_response = SurveyResponse.query.filter_by(respondent_id=respondent_id).first()
             
             if existing_response:
-                # KONDISI A: SUDAH ADA -> UPDATE DATA LAMA
-                print(f"🔄 Mengupdate survei lama untuk Responden ID: {respondent_id}")
-                
-                # Update skor dan waktu
+                # UPDATE DATA LAMA
                 existing_response.total_score = total_score
                 existing_response.timestamp = datetime.now()
-                
-                # Hapus detail jawaban lama (SurveyAnswer) agar tidak numpuk/duplikat
-                # Kita hapus dulu anaknya, nanti di bawah kita insert ulang yang baru
+                # Hapus jawaban detail lama
                 SurveyAnswer.query.filter_by(survey_response_id=existing_response.id).delete()
-                
-                response = existing_response # Gunakan objek lama
-                
+                response = existing_response
             else:
-                # KONDISI B: BELUM ADA -> BUAT BARU
-                print(f"✨ Membuat survei baru untuk Responden ID: {respondent_id}")
-                response = SurveyResponse(
-                    respondent_id=respondent_id,
-                    total_score=total_score
-                )
+                # BUAT DATA BARU
+                response = SurveyResponse(respondent_id=respondent_id, total_score=total_score)
                 db.session.add(response)
             
-            # Flush untuk memastikan kita punya ID response (baik lama maupun baru)
-            db.session.flush() 
+            db.session.flush() # Dapat ID
             
-            # 5. Simpan Detail Jawaban (SurveyAnswer)
+            # 5. Simpan Detail Jawaban (Yang sudah lengkap gabungan Session+DB)
             for q_code, score_val in all_answers.items():
                 new_answer = SurveyAnswer(
-                    survey_response_id=response.id, # ID ini aman (bisa ID lama/baru)
+                    survey_response_id=response.id,
                     question_code=q_code,
                     score=score_val
                 )
                 db.session.add(new_answer)
             
-            # 6. Commit Permanen
             db.session.commit()
             
-            # 7. Bersihkan Session
+            # 6. Bersihkan Session
             for category in ['info', 'comm', 'content', 'security', 'problem']:
                 session.pop(f'survey_{respondent_id}_{category}', None)
             
@@ -359,13 +385,17 @@ def survey_problem(respondent_id):
             
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Error Saving: {e}")
+            print(f"❌ Error: {e}")
             flash(f'Terjadi error: {str(e)}', 'error')
+    
+    # BAGIAN GET (Tampilan Awal)
+    saved_answers = get_smart_answers(respondent_id, 'problem')
     
     return render_template('survey/survey_problem.html',
                         respondent_id=respondent_id,
                         respondent=respondent,
-                        questions=questions)
+                        questions=questions,
+                        saved_answers=saved_answers)
 
 @app.route('/success')
 def success_page(): # Gunakan nama ini
@@ -845,11 +875,11 @@ def chart_data():
         # ==========================================================
         respondents = Respondent.query.all()
         prodi_counts = {}
-        semester_counts = {i:0 for i in range(1, 9)}
+        semester_counts = {i:0 for i in range(1, 15)}
         
         for r in respondents:
             prodi_counts[r.prodi] = prodi_counts.get(r.prodi, 0) + 1
-            if 1 <= r.semester <= 8:
+            if 1 <= r.semester <= 14:
                 semester_counts[r.semester] += 1
 
         # ==========================================================
@@ -898,8 +928,8 @@ def chart_data():
             'total_surveys': SurveyResponse.query.count(),
             'program_studies': list(prodi_counts.keys()),
             'program_counts': list(prodi_counts.values()),
-            'semester_labels': [f'Semester {i}' for i in range(1, 9)],
-            'semester_distribution': [semester_counts[i] for i in range(1, 9)],
+            'semester_labels': [f'Semester {i}' for i in range(1, 15)],
+            'semester_distribution': [semester_counts[i] for i in range(1, 15)],
             'trend_labels': trend_labels,
             'trend_data': trend_data,
             'improvement_areas': improvement_list

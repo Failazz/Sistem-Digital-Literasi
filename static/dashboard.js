@@ -183,13 +183,14 @@ function createProdiChart(data) {
 
 function createSemesterChart(data) {
     const ctx = document.getElementById('semesterChart')?.getContext('2d');
+    const semesterLabels = Array.from({length: 14}, (_, i) => (i + 1).toString());
     if(!ctx) return;
     if(semesterChart) semesterChart.destroy();
 
     semesterChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['1', '2', '3', '4', '5', '6', '7', '8'],
+            labels: semesterLabels,
             datasets: [{
                 data: data.semester_distribution,
                 backgroundColor: '#4361ee',
