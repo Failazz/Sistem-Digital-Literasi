@@ -26,18 +26,16 @@ if os.environ.get('DATABASE_URL'):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     print("=" * 70)
-    print("🚀 SISTEM SURVEI LITERASI DIGITAL - POSTGRESQL")
+    print("🚀 SISTEM SURVEI LITERASI DIGITAL - MySQL")
     print("=" * 70)
-    print("📁 Database: PostgreSQL (Production)")
+    print("📁 Database: MySQL (Production)")
     print("=" * 70)
 else:
-    # Untuk development lokal - GANTI PASSWORD MENJADI admin123
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:yahalose@localhost:5432/survey_digital_literacy'
+    # Konfigurasi MySQL (Format: mysql+pymysql://username:password@host:port/nama_db)
+    # Default XAMPP: user='root', password='' (kosong), port=3306
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost:3306/survey_digital_literacy'
     print("=" * 70)
-    print("🚀 SISTEM SURVEI LITERASI DIGITAL - POSTGRESQL")
-    print("=" * 70)
-    print("📁 Database: PostgreSQL (Local Development)")
-    print("=" * 70)
+    print("🚀 SISTEM SURVEI LITERASI DIGITAL - MySQL")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
