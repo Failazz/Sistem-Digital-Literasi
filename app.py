@@ -111,15 +111,13 @@ class Admin(db.Model):
 
 # ==================== FUNGSI VALIDASI ====================
 def validate_nim(nim):
-    """Validasi NIM: hanya angka dan minimal 8 digit"""
+    """Validasi NIM: hanya angka dan harus tepat 11 digit"""
     if not nim.isdigit():
         return False, "NIM harus berisi angka saja (0-9)"
     
-    if len(nim) < 8:
-        return False, "NIM harus minimal 8 digit"
-    
-    if len(nim) > 20:
-        return False, "NIM maksimal 20 digit"
+    # Ubah validasi panjang menjadi tepat 11 digit
+    if len(nim) != 11:
+        return False, "NIM harus berjumlah 11 angka"
     
     return True, "Valid"
 

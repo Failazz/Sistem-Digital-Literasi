@@ -24,16 +24,9 @@ function validateNIM() {
             return false;
         }
         
-        // Validasi panjang NIM
-        if (nimValue.length < 8) {
-            nimError.textContent = '❌ NIM harus minimal 8 digit';
-            nimError.style.display = 'block';
-            nimInput.classList.add('error');
-            return false;
-        }
-        
-        if (nimValue.length > 20) {
-            nimError.textContent = '❌ NIM maksimal 20 digit';
+        // Validasi panjang NIM (Harus tepat 11)
+        if (nimValue.length !== 11) {
+            nimError.textContent = '❌ NIM harus berjumlah 11 angka';
             nimError.style.display = 'block';
             nimInput.classList.add('error');
             return false;

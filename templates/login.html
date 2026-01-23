@@ -50,9 +50,10 @@
                 <div class="form-group">
                     <label for="nim"><i class="fas fa-id-card"></i> Nomor Induk Mahasiswa (NIM)</label>
                     <input type="text" id="nim" name="nim" placeholder="Nomor Induk Mahasiswa" 
-                        required pattern="[0-9]{8,20}" 
-                        title="NIM harus 8-20 digit angka"
-                        oninput="validateNIM()"> <div id="nim-error" class="error-message"></div>
+                        required pattern="[0-9]{11}" 
+                        title="NIM harus 11 digit angka"
+                        oninput="validateNIM()"> 
+                    <div id="nim-error" class="error-message"></div>
                 </div>
 
                 <div class="form-group">
