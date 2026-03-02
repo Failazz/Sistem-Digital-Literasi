@@ -37,6 +37,14 @@
     font-size: 22px;
     font-weight: 700;
     color: #1e3a8a;
+    /* Transisi halus untuk warna dan transformasi */
+    transition: all 0.3s ease; 
+    cursor: default; /* Default Desktop: Panah biasa */
+}
+
+#logoIcon {
+    font-size: 28px;
+    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55); /* Efek membal saat berubah */
 }
 
 .nav-logo i {
@@ -1387,94 +1395,127 @@
     background-color: #f8faff;
 }
 
-/* Responsif */
-@media (max-width: 768px) {
-    .search-row-filters {
-        grid-template-columns: 1fr;
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 998;
+}
+.sidebar-overlay.active { display: block; }
+
+.brand-mobile {
+    display: none !important;
+}
+
+.brand-desktop {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+}
+
+/* =========================================
+MEDIA QUERY (RESPONSIF TABLET & MOBILE)
+Paste di paling bawah dashboard.css
+   ========================================= */
+
+/* --- BREAKPOINT 1: TABLET & MOBILE (< 992px) --- */
+@media (max-width: 992px) {
+    
+    /* 1. SETUP SIDEBAR OFF-CANVAS */
+    .dashboard-sidebar {
+        left: -280px;           /* Sembunyi di kiri */
+        top: 70px;              /* Di bawah navbar */
+        height: calc(100vh - 70px);
+        width: 260px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+        z-index: 1050; /* Pastikan di atas konten */
     }
+
+    /* Sidebar Muncul saat class active ditambahkan JS */
+    .dashboard-sidebar.active {
+        left: 0;
+    }
+
+    /* 2. SETUP BRANDING (LOGO) */
+    .brand-desktop { display: none !important; }
+    
+    .brand-mobile {
+        display: flex !important;
+        align-items: center;
+        gap: 10px;
+        color: #1e3a8a;
+        font-size: 22px;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    /* Header Sidebar dirapikan */
+    .sidebar-header {
+        padding-top: 15px;
+        padding-bottom: 20px;
+    }
+    
+    /* Pastikan elemen sidebar terlihat */
+    .menu-item span, 
+    .system-info { 
+        display: block !important; 
+    }
+
+    /* 3. MENU ITEM RATA KIRI */
+    .menu-item { 
+        justify-content: flex-start !important; 
+        padding: 15px 20px !important;
+    }
+
+    /* 4. NAVBAR & LOGO BURGER */
+    .dashboard-nav { padding: 0 15px; }
+
+    /* Logo jadi Tombol Burger */
+    .nav-logo {
+        cursor: pointer;
+        padding: 5px;
+    }
+
+    /* Sembunyikan teks 'DIGITARA' di Navbar */
+    .nav-logo span { display: none; }
+
+    /* Animasi Logo */
+    .nav-logo:active #logoIcon { transform: scale(0.9); }
+    .nav-logo.sidebar-open #logoIcon {
+        transform: rotate(90deg); 
+        color: #dc3545;
+    }
+
+    /* Sembunyikan Nama User di Navbar agar muat */
+    .user-info span { display: none; }
+
+    /* 5. LAYOUT KONTEN UTAMA (FULL WIDTH) */
+    .dashboard-main { 
+        margin-left: 0; 
+        padding: 15px;
+        width: 100%; 
+    }
+
+    /* 6. SEMUA GRID JADI 1 KOLOM */
+    .stats-grid, 
+    .charts-row, 
+    .mini-charts-grid,
+    .analytics-grid, 
+    .export-grid, 
+    .data-grid,
+    .actions-grid,
+    .search-row-filters {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Tombol Search & Reset jadi vertikal */
     .search-actions {
         flex-direction: column;
     }
-}
 
-/* RESPONSIVE DESIGN */
-@media (max-width: 1200px) {
-    .charts-row {
-        grid-template-columns: 1fr;
-    }
-    
-    .analytics-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .export-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 992px) {
-    .dashboard-sidebar {
-        width: 80px;
-        padding: 20px 0;
-    }
-    
-    .sidebar-header h3,
-    .menu-item span,
-    .system-info {
-        display: none;
-    }
-    
-    .menu-item {
-        justify-content: center;
-        padding: 15px;
-    }
-    
-    .menu-item i {
-        font-size: 20px;
-    }
-    
-    .dashboard-main {
-        margin-left: 80px;
-    }
-    
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .data-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .dashboard-nav {
-        padding: 0 15px;
-    }
-    
-    .nav-logo span {
-        display: none;
-    }
-    
-    .user-info span {
-        display: none;
-    }
-    
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .mini-charts-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .export-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .actions-grid {
-        grid-template-columns: 1fr;
-    }
-    
+    /* Header Chart jadi vertikal */
     .chart-header {
         flex-direction: column;
         gap: 15px;
@@ -1482,11 +1523,26 @@
     }
 }
 
-@media (max-width: 576px) {
-    .dashboard-main {
-        padding: 15px;
+/* --- BREAKPOINT 2: MOBILE LANDSCAPE (< 768px) --- */
+@media (max-width: 768px) {
+    /* Tabel Scroll Horizontal (Agar tidak pecah) */
+    .results-table-wrapper, 
+    .results-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid #eee;
+        border-radius: 8px;
     }
     
+    /* Paksa tabel lebar agar scroll muncul */
+    .table, .results-table { 
+        min-width: 700px; 
+    }
+}
+
+/* --- BREAKPOINT 3: MOBILE PORTRAIT (< 576px) --- */
+@media (max-width: 576px) {
+    /* Welcome Card jadi vertikal */
     .welcome-card {
         flex-direction: column;
         text-align: center;
@@ -1496,9 +1552,16 @@
     .welcome-stats {
         flex-direction: column;
         gap: 10px;
+        width: 100%;
+    }
+
+    .stat-item {
+        justify-content: center;
     }
     
+    /* Modal Full Width */
     .modal-content {
         width: 95%;
+        margin: 10px;
     }
 }

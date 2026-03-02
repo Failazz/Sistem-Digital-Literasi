@@ -1,8 +1,18 @@
+import os
+
+# --- 1. SETTING LIMIT THREAD ---
+# mencegah error "Resource temporarily unavailable"
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['NUMEXPR_NUM_THREADS'] = '1'
+os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+
+# --- 2. IMPORT LIBRARY ---
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-import os
 import csv
 from io import StringIO, BytesIO
 import pandas as pd
@@ -18,24 +28,13 @@ app = Flask(__name__)
 app.secret_key = 'survey-literasi-digital-2025'
 
 # ==================== KONFIGURASI DATABASE ====================
-# Cek apakah ada environment variable DATABASE_URL
 if os.environ.get('DATABASE_URL'):
-    # Untuk production/Heroku
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    print("=" * 70)
-    print("🚀 SISTEM SURVEI LITERASI DIGITAL - MySQL")
-    print("=" * 70)
-    print("📁 Database: MySQL (Production)")
-    print("=" * 70)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 else:
-    # Konfigurasi MySQL (Format: mysql+pymysql://username:password@host:port/nama_db)
-    # Default XAMPP: user='root', password='' (kosong), port=3306
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost:3306/survey_digital_literacy'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://digq4947_admin:rahasiadapur@localhost:3306/digq4947_digitara_kitchen'
     print("=" * 70)
-    print("🚀 SISTEM SURVEI LITERASI DIGITAL - MySQL")
+    print("SISTEM SURVEI LITERASI DIGITAL - MySQL")
+    print("=" * 70)
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
@@ -134,9 +133,9 @@ def create_default_admin():
                 default_admin = Admin(username='admin', password=hashed_password)
                 db.session.add(default_admin)
                 db.session.commit()
-                print("✅ Admin default dibuat - Username: admin, Password: rahasiadapur")
+                print("Admin default dibuat - Username: admin, Password: rahasiadapur")
         except Exception as e:
-            print(f"⚠️  Gagal membuat admin: {e}")
+            print(f"Gagal membuat admin: {e}")
 
 def admin_required(f):
     """Decorator untuk memeriksa login admin"""
@@ -153,15 +152,15 @@ def init_database():
     with app.app_context():
         try:
             db.create_all()
-            print("✅ Tabel berhasil dibuat (atau sudah ada)")
+            print("Tabel berhasil dibuat (atau sudah ada)")
             
             # Cek koneksi
             count = Respondent.query.count()
-            print(f"📊 Data responden saat ini: {count} orang")
+            print(f"Data responden saat ini: {count} orang")
             
         except Exception as e:
-            print(f"❌ Error inisialisasi database PostgreSQL: {e}")
-            print("⚠️  Pastikan:")
+            print(f"Error inisialisasi database PostgreSQL: {e}")
+            print("Pastikan:")
             print("   1. PostgreSQL service sedang berjalan")
             print("   2. Database 'survey_digital_literacy' sudah dibuat")
             print("   3. Username/password PostgreSQL benar")
@@ -176,6 +175,7 @@ def login():
             prodi = request.form['prodi'].strip()
             semester = request.form['semester'].strip()
             
+            # 1. Validasi Input Dasar
             if not all([nama, nim, prodi, semester]):
                 flash('Harap lengkapi semua data!', 'error')
                 return render_template('login.html')
@@ -183,11 +183,6 @@ def login():
             is_valid, error_msg = validate_nim(nim)
             if not is_valid:
                 flash(f'NIM tidak valid: {error_msg}', 'error')
-                return render_template('login.html')
-            
-            existing_respondent = Respondent.query.filter_by(nim=nim).first()
-            if existing_respondent:
-                flash('❌ NIM sudah terdaftar. Gunakan NIM lain.', 'error')
                 return render_template('login.html')
             
             try:
@@ -198,25 +193,51 @@ def login():
             except ValueError:
                 flash('Semester harus berupa angka', 'error')
                 return render_template('login.html')
+
+            # 2. LOGIKA BARU: Cek Keberadaan Responden
+            existing_respondent = Respondent.query.filter_by(nim=nim).first()
             
-            respondent = Respondent(
-                nama=nama,
-                nim=nim,
-                prodi=prodi,
-                semester=semester_int
-            )
+            if existing_respondent:
+                # Cek apakah dia sudah punya SurveyResponse (artinya sudah Finish)
+                completed_survey = SurveyResponse.query.filter_by(respondent_id=existing_respondent.id).first()
+                
+                if completed_survey:
+                    # KASUS A: Sudah selesai survei -> TOLAK
+                    flash('NIM ini sudah menyelesaikan survei. Anda tidak dapat mengisi lagi.', 'error')
+                    return render_template('login.html')
+                else:
+                    # KASUS B: Terdaftar tapi belum selesai -> IZINKAN (RESUME)
+                    # Update data diri terbaru (jika ada typo sebelumnya)
+                    existing_respondent.nama = nama
+                    existing_respondent.prodi = prodi
+                    existing_respondent.semester = semester_int
+                    db.session.commit()
+                    
+                    print(f"User Resume - ID: {existing_respondent.id}, NIM: {nim}")
+                    flash('Selamat datang kembali! Melanjutkan survei...', 'info')
+                    # Redirect langsung ke survei menggunakan ID yang sudah ada
+                    return redirect(url_for('survey_info', respondent_id=existing_respondent.id))
             
-            db.session.add(respondent)
-            db.session.commit()
-            
-            print(f"✅ Data disimpan - ID: {respondent.id}, NIM: {respondent.nim}, Nama: {respondent.nama}")
-            flash('✅ Data berhasil disimpan! Mengarahkan ke survei...', 'success')
-            
-            return redirect(url_for('survey_info', respondent_id=respondent.id))
+            else:
+                # KASUS C: User Baru -> BUAT BARU
+                respondent = Respondent(
+                    nama=nama,
+                    nim=nim,
+                    prodi=prodi,
+                    semester=semester_int
+                )
+                
+                db.session.add(respondent)
+                db.session.commit()
+                
+                print(f"Data disimpan - ID: {respondent.id}, NIM: {respondent.nim}")
+                flash('Data berhasil disimpan! Mengarahkan ke survei...', 'success')
+                
+                return redirect(url_for('survey_info', respondent_id=respondent.id))
             
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Error: {e}")
+            print(f"Error: {e}")
             flash(f'Terjadi error sistem: {str(e)}', 'error')
             return render_template('login.html')
     
@@ -381,7 +402,7 @@ def survey_problem(respondent_id):
             
         except Exception as e:
             db.session.rollback()
-            print(f"❌ Error: {e}")
+            print(f"Error: {e}")
             flash(f'Terjadi error: {str(e)}', 'error')
     
     # BAGIAN GET (Tampilan Awal)
@@ -424,7 +445,7 @@ def admin():
                                 username=session.get('admin_username'))
             
         except Exception as e:
-            print(f"❌ Error loading dashboard: {e}")
+            print(f"Error loading dashboard: {e}")
             # Jika ada error, tetap tampilkan dashboard dengan nilai default
             return render_template('admin.html',
                                 total_respondents=0,
@@ -444,7 +465,7 @@ def admin():
             session['admin_username'] = username
             session['admin_id'] = admin_user.id
             flash('Login berhasil!', 'success')
-            print(f"✅ Admin login: {username}")
+            print(f"Admin login: {username}")
             # Setelah login, refresh halaman untuk menampilkan dashboard
             return redirect(url_for('admin'))
         else:
@@ -493,12 +514,12 @@ def delete_respondent(respondent_id):
         db.session.delete(respondent)
         db.session.commit()
         
-        flash(f'✅ Data berhasil dihapus: {nama} (NIM: {nim})', 'success')
-        print(f"🗑️  Data dihapus - NIM: {nim}, Nama: {nama}")
+        flash(f'Data berhasil dihapus: {nama} (NIM: {nim})', 'success')
+        print(f"Data dihapus - NIM: {nim}, Nama: {nama}")
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error saat menghapus data: {e}")
+        print(f"Error saat menghapus data: {e}")
         flash(f'Error saat menghapus data: {str(e)}', 'error')
     
     return redirect(url_for('view_data'))
@@ -520,14 +541,14 @@ def delete_survey(survey_id):
         db.session.commit()
         
         if respondent:
-            flash(f'✅ Data survei dihapus (Responden: {respondent.nama}, NIM: {respondent.nim})', 'success')
-            print(f"🗑️  Survey dihapus - ID: {survey_id}, NIM: {respondent.nim}")
+            flash(f'Data survei dihapus (Responden: {respondent.nama}, NIM: {respondent.nim})', 'success')
+            print(f"Survey dihapus - ID: {survey_id}, NIM: {respondent.nim}")
         else:
-            flash(f'✅ Data survei ID: {survey_id} dihapus', 'success')
+            flash(f'Data survei ID: {survey_id} dihapus', 'success')
         
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error saat menghapus survei: {e}")
+        print(f"Error saat menghapus survei: {e}")
         flash(f'Error saat menghapus survei: {str(e)}', 'error')
     
     return redirect(url_for('view_data'))
@@ -593,7 +614,7 @@ def export_csv():
         )
         
     except Exception as e:
-        print(f"❌ Error export CSV: {e}")
+        print(f"Error export CSV: {e}")
         flash(f'Error export CSV: {str(e)}', 'error')
         return redirect(url_for('admin'))
 
@@ -661,7 +682,7 @@ def export_excel():
         )
         
     except Exception as e:
-        print(f"❌ Error export Excel: {e}")
+        print(f"Error export Excel: {e}")
         flash(f'Error export Excel: {str(e)}', 'error')
         return redirect(url_for('admin'))
 
@@ -692,7 +713,7 @@ def view_data():
         html_parts.append('</head><body>')
         
         html_parts.append(f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">')
-        html_parts.append('<h1>📊 Data Survei Literasi Digital</h1>')
+        html_parts.append('<h1>Data Survei Literasi Digital</h1>')
         html_parts.append(f'<div>')
         html_parts.append(f'<span style="margin-right: 15px;"><i class="fas fa-user"></i> {session.get("admin_username", "Admin")}</span>')
         html_parts.append(f'<a href="/admin/logout" class="btn btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>')
@@ -796,11 +817,11 @@ def view_data():
         html_parts.append('''
         <script>
         function confirmDelete(nama, nim) {
-            return confirm(`Apakah Anda yakin ingin menghapus data: ${nama} (NIM: ${nim})?\\n\\n✅ Data responden DAN data survei akan dihapus.\\n❌ Tindakan ini tidak dapat dibatalkan!`);
+            return confirm(`Apakah Anda yakin ingin menghapus data: ${nama} (NIM: ${nim})?\\n\\nData responden DAN data survei akan dihapus.\\n Tindakan ini tidak dapat dibatalkan!`);
         }
 
         function confirmDeleteSurvey(surveyId) {
-            return confirm(`Hapus data survei ID: ${surveyId}?\\n\\n⚠️ Hanya data survei yang dihapus, data responden tetap ada.`);
+            return confirm(`Hapus data survei ID: ${surveyId}?\\n\\n Hanya data survei yang dihapus, data responden tetap ada.`);
         }
         </script>
         ''')
@@ -813,7 +834,7 @@ def view_data():
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        return f"<h1>❌ Terjadi Error dalam view_data():</h1><pre>{error_detail}</pre>"
+        return f"<h1>Terjadi Error dalam view_data():</h1><pre>{error_detail}</pre>"
 
 # ==================== ROUTES UNTUK CHART DATA ====================
 @app.route('/api/chart-data')
@@ -932,7 +953,7 @@ def chart_data():
         })
 
     except Exception as e:
-        print(f"❌ Error chart data: {e}")
+        print(f"Error chart data: {e}")
         return jsonify({'error': str(e)}), 500
 
 # ==================== ROUTES UNTUK SEARCH/FILTER ====================
@@ -1172,24 +1193,6 @@ def handle_specific_question(id):
             db.session.rollback()
             return jsonify({'error': str(e)}), 500
 
-@app.route('/api/questions/<int:id>', methods=['PUT', 'DELETE'])
-@admin_required
-def update_question(id):
-    q = Question.query.get(id)
-    if not q: return jsonify({'error': 'Not found'}), 404
-
-    if request.method == 'DELETE':
-        db.session.delete(q)
-        db.session.commit()
-        return jsonify({'success': True})
-
-    if request.method == 'PUT':
-        data = request.get_json()
-        q.text = data.get('text', q.text)
-        # Code sebaiknya tidak diubah sembarangan karena terkait kolom DB
-        db.session.commit()
-        return jsonify({'success': True})
-
 # ==================== ROUTE TAMBAHAN (YANG HILANG) ====================
 @app.route('/admin/delete-all-testing', methods=['POST'])
 @admin_required
@@ -1229,6 +1232,29 @@ def delete_batch():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+        
+# ==================== OTOMATISASI DATABASE ===================
+with app.app_context():
+    try:
+        db.create_all()
+        print("DB Tables Checked.")
+        
+        # Buat Admin Default
+        try:
+            if not Admin.query.first():
+                hashed_pw = generate_password_hash('rahasiadapur', method='pbkdf2:sha256')
+                db.session.add(Admin(username='admin', password=hashed_pw))
+                db.session.commit()
+                print("Admin Created.")
+        except:
+            pass
+            
+    except Exception as e:
+        print(f"DB Init: {e}")
+
+    finally:
+        db.session.remove()
+        db.engine.dispose()
 
 # ==================== FUNGSI SEEDING DATABASE ====================
 def seed_questions():
@@ -1237,84 +1263,59 @@ def seed_questions():
         # Cek apakah tabel Question sudah ada isinya
         try:
             if Question.query.count() > 0: 
-                print("ℹ️  Database pertanyaan sudah terisi. Skip seeding.")
+                print("  Database pertanyaan sudah terisi. Skip seeding.")
                 return
         except:
-            print("⚠️ Tabel belum siap, skip seeding check.")
+            print(" Tabel belum siap, skip seeding check.")
             return
 
-        print("🌱 Seeding pertanyaan LENGKAP ke database...")
+        print(" Seeding pertanyaan LENGKAP ke database...")
         
         # Format: (kode_unik, kategori, teks_pertanyaan)
         initial_data = [
             # INFO
-            ('q1_info', 'info', 'Saya mampu menggunakan kata kunci spesifik dan operator pencarian (seperti "AND", "OR", tanda kutip) untuk menemukan literatur akademik yang relevan.'),
-            ('q2_info', 'info', 'Saya selalu memeriksa kredibilitas penulis dan penerbit sebelum menggunakan artikel sebagai referensi tugas kuliah.'),
+            ('q1_info', 'info', 'Saya mampu menggunakan kata kunci (keywords) yang spesifik untuk mencari referensi ilmiah di database jurnal (seperti ScienceDirect atau Google Scholar).'),
+            ('q2_info', 'info', 'Saya selalu mengecek kredibilitas sumber informasi digital sebelum menggunakannya sebagai referensi tugas kuliah.'),
             ('q3_info', 'info', 'Saya mampu membedakan antara informasi yang bersifat fakta, opini, dan berita bohong (hoaks) di media sosial.'),
             ('q4_info', 'info', 'Saya memiliki sistem penyimpanan data (seperti Google Drive/iCloud) yang terorganisir sehingga mudah menemukan kembali file tugas lama.'),
             # COMM
-            ('q5_comm', 'comm', 'Saya merasa nyaman menggunakan berbagai platform kolaborasi (Zoom, Google Docs, Trello/Notion) untuk kerja kelompok.'),
-            ('q6_comm', 'comm', 'Saya memahami etika pengiriman surel (email) formal kepada dosen (menggunakan subjek yang jelas, salam pembuka, bahasa baku).'),
+            ('q5_comm', 'comm', 'Saya mahir menggunakan fitur kolaborasi daring (seperti Zoom, Notion, Google Docs, atau Office 365) untuk mengerjakan tugas bersama rekan.'),
+            ('q6_comm', 'comm', 'Saya memahami dan menerapkan etika berkomunikasi (netiket) saat berinteraksi dengan dosen melalui email atau pesan instan.'),
             ('q7_comm', 'comm', 'Saya sadar akan jejak digital (digital footprint) dan berhati-hati dalam memposting komentar atau foto di ruang publik digital.'),
-            ('q8_comm', 'comm', 'Saya aktif berbagi pengetahuan atau materi pembelajaran yang bermanfaat kepada teman melalui grup digital.'),
+            ('q8_comm', 'comm', 'Saya aktif menggunakan platform diskusi akademik (seperti Forum LMS atau LinkedIn) untuk membangun jejaring profesional.'),
             # CONTENT
-            ('q9_content', 'content', 'Saya mampu mengoperasikan perangkat lunak perkantoran (Word, Excel, PPT) fitur lanjut (seperti mail merge, pivot table, atau animasi slide) untuk menunjang tugas.'),
-            ('q10_content', 'content', 'Saya bisa membuat konten multimedia sederhana (infografis, video pendek, atau blog) untuk keperluan tugas atau organisasi.'),
+            ('q9_content', 'content', 'Saya mampu menggunakan perangkat lunak analisis data (seperti Excel, SPSS, atau Mendeley) untuk mendukung pengerjaan tugas kuliah.'),
+            ('q10_content', 'content', 'Saya mampu membuat konten visual (seperti infografis, presentasi interaktif, video pendek, atau blog) untuk keperluan tugas atau organisasi.'),
             ('q11_content', 'content', 'Saya memahami konsep Hak Cipta (Copyright) dan lisensi Creative Commons saat mengambil gambar/musik dari internet.'),
             ('q12_content', 'content', 'Saya selalu mencantumkan sitasi/sumber rujukan dengan format yang benar (APA/IEEE) untuk menghindari plagiarisme.'),
             # SECURITY
-            ('q13_security', 'security', 'Saya rutin mengganti kata sandi (password) akun akademik dan media sosial saya secara berkala.'),
-            ('q14_security', 'security', 'Saya menggunakan fitur Autentikasi Dua Faktor (2FA) pada akun-akun penting (Email, KRS Online, Medsos).'),
-            ('q15_security', 'security', 'Saya memeriksa izin akses aplikasi (app permissions) sebelum menginstalnya di gawai saya.'),
-            ('q16_security', 'security', 'Saya mampu membatasi waktu layar (screen time) jika penggunaan gawai mulai mengganggu kesehatan fisik atau tidur saya.'),
+            ('q13_security', 'security', 'Saya secara rutin memperbarui kata sandi (password) dan tidak menggunakan kata sandi yang sama untuk semua akun digital.'),
+            ('q14_security', 'security', 'Saya menggunakan metode keamanan tambahan seperti Two-Factor Authentication (2FA) pada akun email dan media sosial saya.'),
+            ('q15_security', 'security', 'Saya menyadari bahaya phishing dan tidak sembarangan mengklik link yang mencurigakan di internet.'),
+            ('q16_security', 'security', 'Saya mengatur waktu penggunaan perangkat digital (screen time) secara bijak untuk menjaga kesehatan fisik dan mental.'),
             # PROBLEM
             ('q17_problem', 'problem', 'Ketika menghadapi masalah teknis (misal: gagal koneksi, error aplikasi), saya mencoba mencari solusinya sendiri terlebih dahulu sebelum bertanya pada orang lain.'),
-            ('q18_problem', 'problem', 'Saya sering menggunakan alat digital/aplikasi baru untuk mempermudah manajemen waktu dan tugas kuliah saya.'),
-            ('q19_problem', 'problem', 'Saya mampu beradaptasi dengan cepat jika dosen menggunakan platform pembelajaran (LMS) baru yang belum pernah saya gunakan.')
+            ('q18_problem', 'problem', 'Saya sering menggunakan alat digital/aplikasi baru menunjang produktivitas manajemen waktu dan tugas kuliah saya.'),
+            ('q19_problem', 'problem', 'Saya secara aktif mempelajari fitur-fitur baru dari teknologi terkini (seperti AI) untuk mempermudah pengerjaan tugas kuliah.')
         ]
         
         for code, cat, text in initial_data:
             # Cek double insert
             if not Question.query.filter_by(code=code).first():
                 db.session.add(Question(code=code, category=cat, text=text))
-        
+
         db.session.commit()
-        print("✅ Pertanyaan berhasil di-seed!")
+        print("Pertanyaan berhasil di-seed!")
 
 # ==================== JALANKAN APLIKASI ====================
 if __name__ == '__main__':
     init_database()
     create_default_admin()
     seed_questions()
-    
-    print("\n" + "="*70)
-    print("🌐 URL PENTING:")
-    print("="*70)
-    print("1. Form Survei:        http://127.0.0.1:5000")
-    print("2. Admin Panel:        http://127.0.0.1:5000/admin")
-    print("3. View Data:          http://127.0.0.1:5000/view-data")
-    print("4. Export CSV:         http://127.0.0.1:5000/export/csv")
-    print("5. Export Excel:       http://127.0.0.1:5000/export/excel")
-    print("="*70)
-    print("🔒 FITUR KEAMANAN NIM:")
-    print("   • NIM harus UNIK (tidak boleh duplikat)")
-    print("   • NIM hanya menerima ANGKA (0-9)")
-    print("   • NIM minimal 8 digit")
-    print("="*70)
-    print("🗑️  FITUR DELETE BARU:")
-    print("   • Delete single data dari halaman View Data")
-    print("   • Delete semua data testing dari Admin Panel")
-    print("="*70)
-    print("🔐 Login Admin Default:")
-    print("   Username: admin")
-    print("   Password: rahasiadapur")
-    print("="*70)
-    print("🚀 Server starting...")
-    print("="*70)
-    
+
     try:
         app.run(debug=True, port=5000)
     except Exception as e:
-        print(f"❌ Error: {e}")
-        print("⚠️  Mencoba port 5001...")
+        print(f"Error: {e}")
+        print("Mencoba port 5001...")
         app.run(debug=True, port=5001)

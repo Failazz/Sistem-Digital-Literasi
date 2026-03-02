@@ -965,6 +965,63 @@ AKHIR DARI UPDATE
     }
 }
 
+@media (max-width: 576px) {
+    /* Container menyesuaikan layar HP */
+    .container {
+        border-radius: 0;
+        box-shadow: none;
+        margin: 0;
+        max-width: 100%;
+    }
+
+    .form-container {
+        padding: 20px 15px;
+    }
+
+    .header h1 {
+        font-size: 22px;
+    }
+
+    /* UBAH RATING JADI GRID 5 KOLOM (Agar sejajar di HP) */
+    .rating-scale {
+        display: grid !important;
+        grid-template-columns: repeat(5, 1fr); /* 5 Kolom sama besar */
+        gap: 5px;
+        justify-content: space-between;
+    }
+
+    .rating-option {
+        min-width: 0 !important; /* Hapus batasan lebar minimum */
+        width: 100%;
+    }
+
+    .rating-option label {
+        padding: 10px 2px;
+        font-size: 14px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Sembunyikan label text panjang di antara tombol */
+    .rating-labels {
+        font-size: 10px;
+        margin-top: 5px;
+    }
+
+    /* Tombol Submit Full Width */
+    .btn {
+        width: 100%;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .btn-container {
+        flex-direction: column;
+    }
+}
+
 @media (max-width: 480px) {
     body {
         padding: 10px;

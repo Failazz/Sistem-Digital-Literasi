@@ -484,6 +484,82 @@ document.getElementById('questionForm').addEventListener('submit', async functio
     }
 });
 
+// ==================== SIDEBAR TOGGLE LOGIC ====================
+const sidebar = document.querySelector('.dashboard-sidebar');
+    const overlay = document.querySelector('.sidebar-overlay');
+    const logoDiv = document.getElementById('mainLogo');
+    const logoIcon = document.getElementById('logoIcon');
+    const mobileBreakpoint = 992; // Batas piksel mode mobile
+
+    // --- 1. FUNGSI MENANGANI KLIK LOGO ---
+    function handleLogoClick() {
+        // Hanya jalankan logika menu jika di layar Mobile/Tablet
+        if (window.innerWidth <= mobileBreakpoint) {
+            toggleSidebar();
+        } else {
+            // Jika di Desktop, logo bisa diarahkan ke Home/Dashboard (Opsional)
+            window.location.href = "{{ url_for('admin') }}";
+        }
+    }
+
+    // --- 2. FUNGSI BUKA/TUTUP SIDEBAR ---
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        
+        if (overlay) {
+            overlay.classList.toggle('active');
+        }
+
+        // Tambahkan class penanda ke logo untuk animasi CSS
+        if (sidebar.classList.contains('active')) {
+            logoDiv.classList.add('sidebar-open');
+            // Ubah jadi ikon Silang (X) saat menu terbuka
+            logoIcon.className = "fa-solid fa-xmark"; 
+        } else {
+            logoDiv.classList.remove('sidebar-open');
+            // Kembalikan ke ikon Burger saat menu tertutup
+            logoIcon.className = "fa-solid fa-bars"; 
+        }
+    }
+
+    // --- 3. FUNGSI ADAPTIF (GANTI IKON OTOMATIS) ---
+    function checkScreenSize() {
+        if (window.innerWidth <= mobileBreakpoint) {
+            // MODE MOBILE: Ikon jadi Burger
+            // Cek dulu apakah sidebar sedang terbuka atau tidak
+            if (sidebar.classList.contains('active')) {
+                logoIcon.className = "fa-solid fa-xmark";
+            } else {
+                logoIcon.className = "fa-solid fa-bars";
+            }
+        } else {
+            // MODE DESKTOP: Ikon jadi Chart (Logo Asli)
+            logoIcon.className = "fa-solid fa-chart-simple";
+            
+            // Reset sidebar jika user resize layar ke desktop saat menu terbuka
+            sidebar.classList.remove('active');
+            if(overlay) overlay.classList.remove('active');
+            logoDiv.classList.remove('sidebar-open');
+        }
+    }
+
+    // --- 4. EVENT LISTENERS ---
+    
+    // Cek ukuran layar saat pertama kali load
+    window.addEventListener('DOMContentLoaded', checkScreenSize);
+    
+    // Cek ukuran layar setiap kali di-resize (agar responsif real-time)
+    window.addEventListener('resize', checkScreenSize);
+
+    // Tutup sidebar otomatis saat menu diklik (UX)
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', () => {
+            if (window.innerWidth <= mobileBreakpoint) {
+                toggleSidebar();
+            }
+        });
+    });
+
 // ==================== NAVIGATION LOGIC (PENTING) ====================
 function showSection(sectionId) {
     // 1. Sembunyikan semua section (Hanya satu kali deklarasi)

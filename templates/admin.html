@@ -71,8 +71,8 @@
     <!-- TOP NAVBAR -->
     <nav class="dashboard-nav">
         <div class="nav-left">
-            <div class="nav-logo">
-                <i class="fa-solid fa-chart-simple"></i>
+            <div class="nav-logo" id="mainLogo" onclick="handleLogoClick()">
+                <i class="fa-solid fa-chart-simple" id="logoIcon"></i>
                 <span>DIGITARA</span>
             </div>
         </div>
@@ -91,7 +91,13 @@
     <!-- SIDEBAR -->
     <aside class="dashboard-sidebar">
         <div class="sidebar-header">
-            <h3><i class="fas fa-flask-vial"></i> DataLab</h3>
+            <h3 class="brand-desktop">
+                <i class="fas fa-flask-vial"></i> DataLab
+            </h3>
+            
+            <h3 class="brand-mobile">
+                <i class="fa-solid fa-chart-simple"></i> DIGITARA
+            </h3>
         </div>
         
         <div class="sidebar-menu">
@@ -122,6 +128,7 @@
             </div>
         </div>
     </aside>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
     <!-- MAIN CONTENT -->
     <main class="dashboard-main">

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script untuk export data dari database PostgreSQL ke CSV/Excel
+Script untuk export data dari database MySQL ke CSV/Excel
 """
 
 import os
@@ -21,10 +21,10 @@ def ensure_export_folder():
     """Buat folder export jika belum ada"""
     if not os.path.exists(EXPORT_FOLDER):
         os.makedirs(EXPORT_FOLDER)
-        print(f"📁 Membuat folder: {EXPORT_FOLDER}")
+        print(f"Membuat folder: {EXPORT_FOLDER}")
 
 def export_to_csv():
-    """Export data ke CSV (PostgreSQL version)"""
+    """Export data ke CSV (MySQL version)"""
     try:
         with app.app_context():
             # Query data menggunakan SQLAlchemy
@@ -73,17 +73,17 @@ def export_to_csv():
             csv_filename = f"{EXPORT_FOLDER}/survey_data_{timestamp}.csv"
             df.to_csv(csv_filename, index=False, encoding='utf-8')
             
-            print(f"✅ Data berhasil diexport ke: {csv_filename}")
-            print(f"📊 Jumlah baris: {len(df)}")
+            print(f"Data berhasil diexport ke: {csv_filename}")
+            print(f"Jumlah baris: {len(df)}")
             
             return csv_filename
             
     except Exception as e:
-        print(f"❌ Error export CSV: {e}")
+        print(f"Error export CSV: {e}")
         return None
 
 def export_to_excel():
-    """Export data ke Excel (PostgreSQL version)"""
+    """Export data ke Excel (MySQL version)"""
     try:
         with app.app_context():
             respondents = Respondent.query.all()
@@ -134,13 +134,13 @@ def export_to_excel():
             with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
                 df.to_excel(writer, sheet_name='Survey Data', index=False)
             
-            print(f"✅ Data berhasil diexport ke: {excel_filename}")
-            print(f"📊 Jumlah baris: {len(df)}")
+            print(f"Data berhasil diexport ke: {excel_filename}")
+            print(f"Jumlah baris: {len(df)}")
             
             return excel_filename
             
     except Exception as e:
-        print(f"❌ Error export Excel: {e}")
+        print(f"Error export Excel: {e}")
         return None
 
 def show_statistics():
@@ -156,7 +156,7 @@ def show_statistics():
                 avg_score = total / total_surveys
             
             print("=" * 50)
-            print("📊 STATISTIK DATABASE POSTGRESQL")
+            print("STATISTIK DATABASE POSTGRESQL")
             print("=" * 50)
             print(f"Total Responden: {total_respondents}")
             print(f"Total Survei: {total_surveys}")
@@ -164,12 +164,12 @@ def show_statistics():
             print("=" * 50)
             
     except Exception as e:
-        print(f"❌ Error statistik: {e}")
+        print(f"Error statistik: {e}")
 
 def main():
     """Menu utama"""
     print("=" * 50)
-    print("📁 EXPORT DATA SURVEI LITERASI DIGITAL - POSTGRESQL")
+    print("EXPORT DATA SURVEI LITERASI DIGITAL - POSTGRESQL")
     print("=" * 50)
     
     # Pastikan folder export ada
