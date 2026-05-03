@@ -9,10 +9,12 @@ os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
 
 # --- 2. IMPORT LIBRARY ---
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
+import numpy as np
+import skfuzzy as fuzz
 import csv
 from io import StringIO, BytesIO
 import pandas as pd
@@ -31,7 +33,7 @@ app.secret_key = 'survey-literasi-digital-2025'
 if os.environ.get('DATABASE_URL'):
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://digq4947_admin:rahasiadapur@localhost:3306/digq4947_digitara_kitchen'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://digq4947_admin:rahasiadapur@localhost:3306/digq4947_digitara'
     print("=" * 70)
     print("SISTEM SURVEI LITERASI DIGITAL - MySQL")
     print("=" * 70)
@@ -606,11 +608,13 @@ def export_csv():
         
         # 4. Kirim File
         output.seek(0)
-        return send_file(
-            BytesIO(output.getvalue().encode('utf-8')),
+        csv_data = output.getvalue().encode('utf-8')
+        filename = f'survey_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        
+        return Response(
+            csv_data,
             mimetype='text/csv',
-            as_attachment=True,
-            download_name=f'survey_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+            headers={"Content-disposition": f"attachment; filename={filename}"}
         )
         
     except Exception as e:
@@ -673,12 +677,13 @@ def export_excel():
             df.to_excel(writer, sheet_name='Survey Data', index=False)
         
         output.seek(0)
+        excel_data = output.read()
+        filename = f'survey_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
         
-        return send_file(
-            output,
+        return Response(
+            excel_data,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'survey_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            headers={"Content-disposition": f"attachment; filename={filename}"}
         )
         
     except Exception as e:
@@ -1193,6 +1198,24 @@ def handle_specific_question(id):
             db.session.rollback()
             return jsonify({'error': str(e)}), 500
 
+@app.route('/api/questions/<int:id>', methods=['PUT', 'DELETE'])
+@admin_required
+def update_question(id):
+    q = Question.query.get(id)
+    if not q: return jsonify({'error': 'Not found'}), 404
+
+    if request.method == 'DELETE':
+        db.session.delete(q)
+        db.session.commit()
+        return jsonify({'success': True})
+
+    if request.method == 'PUT':
+        data = request.get_json()
+        q.text = data.get('text', q.text)
+        # Code sebaiknya tidak diubah sembarangan karena terkait kolom DB
+        db.session.commit()
+        return jsonify({'success': True})
+
 # ==================== ROUTE TAMBAHAN (YANG HILANG) ====================
 @app.route('/admin/delete-all-testing', methods=['POST'])
 @admin_required
@@ -1255,6 +1278,90 @@ with app.app_context():
     finally:
         db.session.remove()
         db.engine.dispose()
+
+        # ==================== ROUTE FCM CLUSTERING ====================
+@app.route('/api/fcm-clustering')
+def api_fcm_clustering():
+    try:
+        # 1. Join tabel Respondent agar kita dapat Nama & NIM
+        query_data = db.session.query(
+            Respondent.id, Respondent.nama, Respondent.nim,
+            Question.category, func.avg(SurveyAnswer.score)
+        ).join(SurveyResponse, Respondent.id == SurveyResponse.respondent_id) \
+        .join(SurveyAnswer, SurveyResponse.id == SurveyAnswer.survey_response_id) \
+        .join(Question, SurveyAnswer.question_code == Question.code) \
+        .group_by(Respondent.id, Question.category).all()
+
+        # 2. Susun data
+        resp_dict = {}
+        for r_id, nama, nim, cat, avg_score in query_data:
+            if r_id not in resp_dict:
+                resp_dict[r_id] = {
+                    'nama': nama, 'nim': nim,
+                    'scores': {'info': 0, 'comm': 0, 'content': 0, 'security': 0, 'problem': 0}
+                }
+            resp_dict[r_id]['scores'][cat] = float(avg_score)
+
+        if len(resp_dict) < 4:
+            return jsonify({'success': False, 'error': 'Minimal 4 responden diperlukan.'})
+
+        # 3. Ekstraksi urutan ID dan Matriks Data
+        categories = ['info', 'comm', 'content', 'security', 'problem']
+        ordered_ids = list(resp_dict.keys())
+        data_list = [[resp_dict[r_id]['scores'][c] for c in categories] for r_id in ordered_ids]
+        
+        # Format input skfuzzy
+        alldata = np.array(data_list).T 
+
+        # 4. Terapkan FCM
+        c = 4
+        m = 2.0
+
+        cntr, u, u0, d, jm, p, fpc = fuzz.cluster.cmeans(
+            alldata, c=c, m=m, error=0.005, maxiter=1000, init=None
+        )
+
+        # 5. Urutkan Centroid dari terendah ke tertinggi
+        cluster_sums = np.sum(cntr, axis=1)
+        sorted_indices = np.argsort(cluster_sums)
+        sorted_cntr = cntr[sorted_indices]
+        sorted_u = u[sorted_indices]
+
+        # 6. Susun Rincian Data per Mahasiswa untuk Tabel
+        details = []
+        dominant_clusters = np.argmax(sorted_u, axis=0)
+        labels = ["Tingkat Dasar", "Menengah Bawah", "Menengah Atas", "Tingkat Lanjut"]
+        badges = ["badge-low", "badge-medium", "badge-medium", "badge-high"]
+
+        for i, r_id in enumerate(ordered_ids):
+            # Derajat keanggotaan (dalam persen)
+            membership = [round(float(sorted_u[cluster_idx][i]) * 100, 1) for cluster_idx in range(c)]
+            dominan_idx = int(dominant_clusters[i])
+            
+            details.append({
+                'nim': resp_dict[r_id]['nim'],
+                'nama': resp_dict[r_id]['nama'],
+                'scores': [round(resp_dict[r_id]['scores'][cat], 2) for cat in categories],
+                'membership': membership,
+                'final_cluster': labels[dominan_idx],
+                'badge': badges[dominan_idx]
+            })
+
+        counts = [int(np.sum(dominant_clusters == i)) for i in range(c)]
+
+        return jsonify({
+            'success': True,
+            'fpc': round(fpc, 3),
+            'labels': labels,
+            'centroids': sorted_cntr.tolist(),
+            'counts': counts,
+            'categories': ['Info & Data', 'Communication', 'Content Creation', 'Security', 'Problem Solving'],
+            'details': details # <--- INI DATA BARU UNTUK TABEL
+        })
+
+    except Exception as e:
+        print(f"Error FCM: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 # ==================== FUNGSI SEEDING DATABASE ====================
 def seed_questions():

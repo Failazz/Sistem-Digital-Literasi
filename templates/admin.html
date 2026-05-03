@@ -110,11 +110,11 @@
             <a href="#questions" class="menu-item" onclick="showSection('questions')">
                 <i class="fas fa-edit"></i> Kelola Soal
             </a>
-            <a href="{{ url_for('view_data') }}" class="menu-item">
-                <i class="fas fa-table"></i> Raw Data
-            </a>
             <a href="#charts" class="menu-item" onclick="showSection('charts')">
                 <i class="fas fa-chart-bar"></i> Analytics
+            </a>
+            <a href="#fcm" class="menu-item" onclick="showSection('fcm')">
+                <i class="fas fa-project-diagram"></i> Clustering FCM
             </a>
             <a href="#export" class="menu-item" onclick="showSection('export')">
                 <i class="fas fa-file-export"></i> Export
@@ -465,6 +465,99 @@
                         <div class="improvement-list" id="improvementAreas">
                             <!-- Will be populated by JS -->
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Clustering FCM -->
+        <section id="fcm-section" class="dashboard-section">
+            <div class="section-header">
+                <h2><i class="fas fa-project-diagram"></i> Analisis Fuzzy C-Means (FCM)</h2>
+                <p>Pengelompokan otomatis tingkat literasi digital mahasiswa menjadi 4 level kompetensi.</p>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white;">
+                    <div class="stat-header">
+                        <h3 style="color: white;"><i class="fas fa-check-double"></i> Validitas (FPC)</h3>
+                    </div>
+                    <div class="stat-value" id="fpcScore" style="color: white;">0.00</div>
+                    <div class="stat-footer" style="color: #e2e8f0;">
+                        <span>Mendekati 1.0 = Sangat Valid</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header"><h3><i class="fas fa-user-times"></i> Tingkat Dasar</h3></div>
+                    <div class="stat-value" id="c0Count">0 Mhs</div>
+                    <div class="stat-footer"><span class="score-badge badge-low">Cluster 1</span></div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header"><h3><i class="fas fa-user-minus"></i> Menengah Bawah</h3></div>
+                    <div class="stat-value" id="c1Count">0 Mhs</div>
+                    <div class="stat-footer"><span class="score-badge badge-medium">Cluster 2</span></div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header"><h3><i class="fas fa-user-plus"></i> Menengah Atas</h3></div>
+                    <div class="stat-value" id="c2Count">0 Mhs</div>
+                    <div class="stat-footer"><span class="score-badge badge-high">Cluster 3</span></div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-header"><h3><i class="fas fa-user-check"></i> Tingkat Lanjut</h3></div>
+                    <div class="stat-value" id="c3Count">0 Mhs</div>
+                    <div class="stat-footer"><span style="background:#4361ee; color:white; padding: 4px 10px; border-radius: 15px; font-size: 12px; font-weight: 600;">Cluster 4</span></div>
+                </div>
+            </div>
+
+            <div class="charts-row">
+                <div class="chart-container large" style="grid-column: 1 / -1;">
+                    <div class="chart-header">
+                        <h3><i class="fa-solid fa-chart-pie"></i> Grafik Cluster Literasi Digital</h3>
+                        <div class="chart-actions">
+                            <button class="btn-sm" onclick="loadFCMData()"><i class="fas fa-sync"></i> Hitung Ulang FCM</button>
+                        </div>
+                    </div>
+                    <div class="chart-body" style="height: 450px; display: flex; justify-content: center;">
+                        <canvas id="fcmRadarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="data-management-container" style="margin-top: 30px;">
+                <div class="filter-header">
+                    <h3><i class="fas fa-table"></i> Rincian Matriks Keanggotaan FCM per Mahasiswa</h3>
+                </div>
+                <div class="filter-body" style="padding: 0;">
+                    <div class="results-scroll" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table" style="font-size: 13px;">
+                            <thead style="position: sticky; top: 0; z-index: 1;">
+                                <tr>
+                                    <th rowspan="2" style="background:#f8f9fa; border-right: 1px solid #ddd;">Mahasiswa</th>
+                                    <th colspan="5" style="text-align: center; background:#e3f2fd; border-right: 1px solid #ddd;">Nilai Rata-rata 5 Kategori (Input)</th>
+                                    <th colspan="4" style="text-align: center; background:#fff3e0; border-right: 1px solid #ddd;">Derajat Keanggotaan FCM (%)</th>
+                                    <th rowspan="2" style="text-align: center; background:#f8f9fa;">Keputusan Cluster</th>
+                                </tr>
+                                <tr>
+                                    <th style="background:#e3f2fd; font-size:11px;">Info</th>
+                                    <th style="background:#e3f2fd; font-size:11px;">Comm</th>
+                                    <th style="background:#e3f2fd; font-size:11px;">Cont</th>
+                                    <th style="background:#e3f2fd; font-size:11px;">Sec</th>
+                                    <th style="background:#e3f2fd; font-size:11px; border-right: 1px solid #ddd;">Prob</th>
+                                    
+                                    <th style="background:#fff3e0; font-size:11px;">C1</th>
+                                    <th style="background:#fff3e0; font-size:11px;">C2</th>
+                                    <th style="background:#fff3e0; font-size:11px;">C3</th>
+                                    <th style="background:#fff3e0; font-size:11px; border-right: 1px solid #ddd;">C4</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fcmTableBody">
+                                <tr><td colspan="11" class="text-center">Menunggu proses algoritma...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

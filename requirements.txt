@@ -5,3 +5,5 @@ openpyxl
 pymysql
 python-dotenv
 Werkzeug
+scikit-fuzzy
+numpy

@@ -1,6 +1,6 @@
 // static/dashboard.js - VERSI LENGKAP
 
-let categoryChart, prodiChart, semesterChart, gaugeChart, trendChart;
+let categoryChart, prodiChart, semesterChart, gaugeChart, trendChart, fcmRadarChart;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadChartData();
@@ -412,7 +412,7 @@ async function loadQuestions() {
 
 // 2. Fungsi Hapus Soal (BARU)
 async function deleteQuestion(id, text) {
-    if(!confirm(`⚠️ Apakah Anda yakin ingin menghapus pertanyaan ini?\n\n"${text}"\n\nTindakan ini tidak dapat dibatalkan.`)) {
+    if(!confirm(` Apakah Anda yakin ingin menghapus pertanyaan ini?\n\n"${text}"\n\nTindakan ini tidak dapat dibatalkan.`)) {
         return;
     }
 
@@ -424,14 +424,14 @@ async function deleteQuestion(id, text) {
         const result = await res.json();
 
         if(res.ok) {
-            alert("✅ Pertanyaan berhasil dihapus!");
+            alert("Pertanyaan berhasil dihapus!");
             loadQuestions(); // Refresh tabel otomatis
         } else {
-            alert("❌ Gagal menghapus: " + (result.error || 'Terjadi kesalahan'));
+            alert("Gagal menghapus: " + (result.error || 'Terjadi kesalahan'));
         }
     } catch (e) {
         console.error(e);
-        alert("❌ Error koneksi ke server.");
+        alert("Error koneksi ke server.");
     }
 }
 
@@ -595,6 +595,9 @@ function showSection(sectionId) {
             // Refresh chart jika diperlukan (Optional)
             if(typeof loadChartData === 'function') loadChartData();
         }
+        else if (sectionId === 'fcm') {
+            loadFCMData();                  
+        }
     }
 
     // 3. Update warna tombol Sidebar
@@ -606,5 +609,110 @@ function showSection(sectionId) {
     const activeLink = document.querySelector(`.sidebar-menu a[href="#${sectionId}"]`);
     if (activeLink) {
         activeLink.classList.add('active');
+    }
+}
+
+// ==================== FCM CLUSTERING FUNCTIONS ====================
+async function loadFCMData() {
+    try {
+        // Tampilkan indikator loading di UI
+        document.getElementById('fpcScore').innerText = "...";
+        
+        const res = await fetch('/api/fcm-clustering');
+        const data = await res.json();
+        
+        if(!data.success) {
+            alert("Gagal memproses FCM: " + data.error);
+            document.getElementById('fpcScore').innerText = "Error";
+            return;
+        }
+
+        // 1. Update Angka di Kartu Statistik
+        document.getElementById('fpcScore').innerText = data.fpc;
+        document.getElementById('c0Count').innerText = data.counts[0] + " Mhs";
+        document.getElementById('c1Count').innerText = data.counts[1] + " Mhs";
+        document.getElementById('c2Count').innerText = data.counts[2] + " Mhs";
+        document.getElementById('c3Count').innerText = data.counts[3] + " Mhs";
+
+        // 2. Render Doughnut Chart (Grafik Bulat FCM)
+        const ctx = document.getElementById('fcmRadarChart').getContext('2d');
+        if(window.fcmRadarChart instanceof Chart) {
+            window.fcmRadarChart.destroy();
+        }
+
+        window.fcmRadarChart = new Chart(ctx, {
+            type: 'doughnut', // Bisa diganti 'pie' jika ingin bulat penuh tanpa lubang
+            data: {
+                labels: data.labels, // Menggunakan label Tingkat Dasar, Menengah, dll
+                datasets: [{
+                    data: data.counts, // Mengambil jumlah mahasiswa per kelompok
+                    backgroundColor: [
+                        '#ff5252', // Merah (Tingkat Dasar)
+                        '#ffc107', // Kuning (Menengah Bawah)
+                        '#4caf50', // Hijau (Menengah Atas)
+                        '#4361ee'  // Biru (Tingkat Lanjut)
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff', // Garis putih pemisah antar potongan
+                    hoverOffset: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%', // Besarnya lubang di tengah (hapus baris ini jika pakai type 'pie')
+                plugins: {
+                    legend: { 
+                        position: 'bottom', // Posisi keterangan warna
+                        labels: { padding: 20 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                // Menampilkan teks: "Tingkat Dasar: X Mahasiswa" saat disorot mouse
+                                return ' ' + context.label + ': ' + context.raw + ' Mahasiswa';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. Render Tabel Rincian FCM
+        const tbody = document.getElementById('fcmTableBody');
+        let tableHtml = '';
+        
+        data.details.forEach(mhs => {
+            // Mencari nilai persentase tertinggi untuk di-highlight (di-bold)
+            const maxPercent = Math.max(...mhs.membership);
+            
+            tableHtml += `
+            <tr>
+                <td style="border-right: 1px solid #eee;">
+                    <strong>${mhs.nama}</strong><br>
+                    <span style="color:#666; font-size:11px;">NIM: ${mhs.nim}</span>
+                </td>
+                
+                <td>${mhs.scores[0]}</td>
+                <td>${mhs.scores[1]}</td>
+                <td>${mhs.scores[2]}</td>
+                <td>${mhs.scores[3]}</td>
+                <td style="border-right: 1px solid #eee;">${mhs.scores[4]}</td>
+                
+                <td style="${mhs.membership[0] === maxPercent ? 'font-weight:bold; color:#ff5252;' : ''}">${mhs.membership[0]}%</td>
+                <td style="${mhs.membership[1] === maxPercent ? 'font-weight:bold; color:#ffc107;' : ''}">${mhs.membership[1]}%</td>
+                <td style="${mhs.membership[2] === maxPercent ? 'font-weight:bold; color:#4caf50;' : ''}">${mhs.membership[2]}%</td>
+                <td style="border-right: 1px solid #eee; ${mhs.membership[3] === maxPercent ? 'font-weight:bold; color:#4361ee;' : ''}">${mhs.membership[3]}%</td>
+                
+                <td style="text-align: center;">
+                    <span class="score-badge ${mhs.badge}">${mhs.final_cluster}</span>
+                </td>
+            </tr>`;
+        });
+        
+        tbody.innerHTML = tableHtml;
+    } catch(e) {
+        console.error("FCM System Error: ", e);
+        alert("Terjadi kesalahan pada sistem FCM.");
     }
 }
